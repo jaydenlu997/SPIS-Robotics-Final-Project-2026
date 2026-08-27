@@ -1,7 +1,7 @@
-from camera_test import SetupPiCamera, RunPICamera, EndPICamera
+from camera_test import SetupPICamera, RunPICamera, EndPICamera
 
 def main():
-  camera = SetupPiCamera()
+  camera = SetupPICamera()
 
   try:
     RunPICamera(camera)
