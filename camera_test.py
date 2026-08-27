@@ -4,7 +4,7 @@
 from picamera2 import Picamera2
 import cv2
 import numpy as np
-from DirectionEnum import DirectionEnum
+from DirectionEnum import Direction
 
 def SetupPICamera():
 
@@ -28,7 +28,7 @@ def SetupPICamera():
 
     return camera
 
-def RunPICamera(camera: np.ndarray) -> tuple[np.ndarray, DirectionEnum.Enum]:
+def RunPICamera(camera: np.ndarray) -> tuple[np.ndarray, Direction]:
     # Grab a frame
     img = camera.capture_array()
     
@@ -67,7 +67,7 @@ def detect_blue_tape_turn(
     lower_blue: np.ndarray = np.array([95, 80, 50]),
     upper_blue: np.ndarray = np.array([135, 255, 255]),
     shift_threshold: float = 0.15
-) -> tuple[DirectionEnum.Enum, np.ndarray]:
+) -> tuple[Direction, np.ndarray]:
     """
     Isolates blue painter's tape using HSV thresholding, filters out all other 
     surrounding colors and background, and classifies the turn.
@@ -88,7 +88,7 @@ def detect_blue_tape_turn(
     # 3. Extract the largest blue contour (discards stray blue noise/dots)
     contours, _ = cv2.findContours(tape_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
-        return DirectionEnum.NO_DETECTED, tape_mask
+        return Direction.NO_DETECTED, tape_mask
 
     largest_contour = max(contours, key=cv2.contourArea)
     clean_mask = np.zeros_like(tape_mask)
@@ -103,7 +103,7 @@ def detect_blue_tape_turn(
     total_height = y_max - y_min
 
     if total_height == 0 or total_width == 0:
-        return DirectionEnum.STRAIGHT, clean_mask
+        return Direction.STRAIGHT, clean_mask
 
     # 5. Extract entry (bottom 15%) and exit (top 15%) slices
     h_slice = max(1, int(total_height * 0.15))
@@ -114,7 +114,7 @@ def detect_blue_tape_turn(
     _, x_bot = np.where(bot_slice > 0)
 
     if len(x_top) == 0 or len(x_bot) == 0:
-        return DirectionEnum.STRAIGHT, clean_mask
+        return Direction.STRAIGHT, clean_mask
 
     # 6. Direction classification via horizontal centroid shift (Δx / Total Width)
     cx_top = np.mean(x_top)
@@ -122,10 +122,10 @@ def detect_blue_tape_turn(
     normalized_shift = (cx_top - cx_bot) / total_width
 
     if normalized_shift > shift_threshold:
-        direction = DirectionEnum.RIGHT
+        direction = Direction.RIGHT
     elif normalized_shift < -shift_threshold:
-        direction = DirectionEnum.LEFT
+        direction = Direction.LEFT
     else:
-        direction = DirectionEnum.STRAIGHT
-
+        direction = Direction.STRAIGHT
+ 
     return direction, clean_mask
