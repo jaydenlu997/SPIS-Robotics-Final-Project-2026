@@ -1,11 +1,12 @@
 # This is a basic program to test the camera
 
+# General libraries
+import time
+# Libraries to control the camera
+from picamera2 import Picamera2
+import cv2
+
 def SetupPICamera():
-    # General libraries
-    import time
-    # Libraries to control the camera
-    from picamera2 import Picamera2
-    import cv2
 
     print("Setting up the camera ...")
 
