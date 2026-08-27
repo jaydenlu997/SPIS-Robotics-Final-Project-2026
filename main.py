@@ -1,5 +1,5 @@
 from camera_test import SetupPICamera, RunPICamera, EndPICamera
-import DirectionEnum
+from DirectionEnum import Direction
 import time
 
 def main():
