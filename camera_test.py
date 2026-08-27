@@ -4,7 +4,7 @@
 from picamera2 import Picamera2
 import cv2
 import numpy as np
-import DirectionEnum
+from DirectionEnum import DirectionEnum
 
 def SetupPICamera():
 
@@ -73,7 +73,7 @@ def detect_blue_tape_turn(
     surrounding colors and background, and classifies the turn.
     
     Returns:
-        tuple: (direction_label, binary_mask)
+        tuple: (direction, binary_mask)
     """
 
     # 1. Normalize image dimensions and color space

@@ -13,7 +13,7 @@ def main():
     camera.start()
 
     while (True):
-      img, direction: DirectionEnum.Enum = RunPICamera(camera=camera)
+      img, direction= RunPICamera(camera=camera)
       time.sleep(0.2)
 
     
