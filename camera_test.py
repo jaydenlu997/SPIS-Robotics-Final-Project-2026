@@ -1,11 +1,10 @@
 # This is a basic program to test the camera
 
-# General libraries
-import time
 # Libraries to control the camera
 from picamera2 import Picamera2
 import cv2
 import numpy as np
+import DirectionEnum
 
 def SetupPICamera():
 
@@ -29,31 +28,26 @@ def SetupPICamera():
 
     return camera
 
-def RunPICamera(camera):
-    # Start the camera
-    camera.start()
+def RunPICamera(camera: np.ndarray) -> tuple[np.ndarray, DirectionEnum.Enum]:
+    # Grab a frame
+    img = camera.capture_array()
     
-    # Continuously grab camera frames
-    print("Starting the camera ...")
-    while (True):
-        
-        # Grab a frame
-        img = camera.capture_array()
-        
-        # Show the frame (OpenCV assumes BRG color representation)
-        cv2.imshow("Camera", img)
+    # Show the frame (OpenCV assumes BRG color representation)
+    cv2.imshow("Camera", img)
 
-        # Grab a frame
-        img = camera.capture_array()
+    # Grab a frame
+    img = camera.capture_array()
 
-        direction, mask = detect_blue_tape_turn(img)
-        print(direction)
+    direction, mask = detect_blue_tape_turn(img)
+    print(direction)
 
-        cv2.imshow("Modified frame", mask)
-        
-        # The waitKey command is needed to force openCV to show the image
-        # It looks for a keystroke for x ms (with x the argument) 
-        cv2.waitKey(1)
+    cv2.imshow("Modified frame", mask)
+    
+    # The waitKey command is needed to force openCV to show the image
+    # It looks for a keystroke for x ms (with x the argument) 
+    cv2.waitKey(1)
+
+    return img, direction
         
         
 
@@ -73,7 +67,7 @@ def detect_blue_tape_turn(
     lower_blue: np.ndarray = np.array([95, 80, 50]),
     upper_blue: np.ndarray = np.array([135, 255, 255]),
     shift_threshold: float = 0.15
-) -> tuple[str, np.ndarray]:
+) -> tuple[DirectionEnum.Enum, np.ndarray]:
     """
     Isolates blue painter's tape using HSV thresholding, filters out all other 
     surrounding colors and background, and classifies the turn.
@@ -94,7 +88,7 @@ def detect_blue_tape_turn(
     # 3. Extract the largest blue contour (discards stray blue noise/dots)
     contours, _ = cv2.findContours(tape_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
-        return "NO_TAPE_DETECTED", tape_mask
+        return DirectionEnum.NO_DETECTED, tape_mask
 
     largest_contour = max(contours, key=cv2.contourArea)
     clean_mask = np.zeros_like(tape_mask)
@@ -109,7 +103,7 @@ def detect_blue_tape_turn(
     total_height = y_max - y_min
 
     if total_height == 0 or total_width == 0:
-        return "STRAIGHT", clean_mask
+        return DirectionEnum.STRAIGHT, clean_mask
 
     # 5. Extract entry (bottom 15%) and exit (top 15%) slices
     h_slice = max(1, int(total_height * 0.15))
@@ -120,7 +114,7 @@ def detect_blue_tape_turn(
     _, x_bot = np.where(bot_slice > 0)
 
     if len(x_top) == 0 or len(x_bot) == 0:
-        return "STRAIGHT", clean_mask
+        return DirectionEnum.STRAIGHT, clean_mask
 
     # 6. Direction classification via horizontal centroid shift (Δx / Total Width)
     cx_top = np.mean(x_top)
@@ -128,10 +122,10 @@ def detect_blue_tape_turn(
     normalized_shift = (cx_top - cx_bot) / total_width
 
     if normalized_shift > shift_threshold:
-        direction = "90_DEG_RIGHT"
+        direction = DirectionEnum.RIGHT
     elif normalized_shift < -shift_threshold:
-        direction = "90_DEG_LEFT"
+        direction = DirectionEnum.LEFT
     else:
-        direction = "STRAIGHT"
+        direction = DirectionEnum.STRAIGHT
 
     return direction, clean_mask
