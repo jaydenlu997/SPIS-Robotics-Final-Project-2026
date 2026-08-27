@@ -30,14 +30,8 @@ def SetupPICamera():
     return camera
 
 def RunPICamera(camera):
-
-    # Run the camera for this many seconds
-    duration = 5
-
-
     # Start the camera
     camera.start()
-    start_time = time.time()
     
     # Continuously grab camera frames
     print("Starting the camera ...")
@@ -52,10 +46,7 @@ def RunPICamera(camera):
         # Grab a frame
         img = camera.capture_array()
 
-        print(classify_curve_array(img))
-        
-        time.sleep(5)
-        #img1 = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        print(classify_90deg_turn(img))
         
         # The waitKey command is needed to force openCV to show the image
         # It looks for a keystroke for x ms (with x the argument) 
@@ -72,48 +63,59 @@ def EndPICamera(camera):
 
 
 
-def classify_curve_array(
-    image: np.ndarray, 
-    curvature_threshold: float = 0.0005,
-) -> str:
-    
-    # 1. Normalize input channel dimensions
-    if len(image.shape) == 3:
+
+
+
+def classify_90deg_turn(image: np.ndarray, shift_threshold: float = 0.15) -> str:
+    """
+    Classifies an orthogonal path as STRAIGHT, 90_DEG_RIGHT, or 90_DEG_LEFT.
+    Accepts 2D grayscale/binary or 3D BGR/RGB NumPy arrays.
+    """
+
+    # 1. Convert to grayscale if necessary
+    if image.ndim == 3:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        annotated_img = image.copy()
     else:
         gray = image.copy()
-        annotated_img = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
 
-    # 2. Extract line coordinates (threshold if not already binary)
-    if gray.dtype != np.uint8:
-        gray = (gray * 255).astype(np.uint8)
+    # 2. Automatically isolate the line (handles dark-on-light or light-on-dark)
+    is_dark_line = np.mean(gray) > 127
+    mask = (gray < 127) if is_dark_line else (gray > 127)
 
-    # If the image is not strictly binary (0 or 255), apply a threshold
-    unique_vals = np.unique(gray)
-    if len(unique_vals) > 2:
-        _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)
+    y_indices, x_indices = np.where(mask)
+    if len(y_indices) == 0:
+        return "NO_LINE_DETECTED"
+
+    # 3. Crop to the path bounding box
+    y_min, y_max = y_indices.min(), y_indices.max()
+    x_min, x_max = x_indices.min(), x_indices.max()
+    total_width = x_max - x_min
+    total_height = y_max - y_min
+
+    if total_height == 0 or total_width == 0:
+        return "STRAIGHT"
+
+    # 4. Extract top 20% (exit) and bottom 20% (entry) vertical slices
+    h_slice = max(1, int(total_height * 0.2))
+    top_mask = mask[y_min : y_min + h_slice, :]
+    bot_mask = mask[y_max - h_slice : y_max + 1, :]
+
+    _, x_top = np.where(top_mask)
+    _, x_bot = np.where(bot_mask)
+
+    if len(x_top) == 0 or len(x_bot) == 0:
+        return "STRAIGHT"
+
+    # 5. Compute horizontal centroids
+    cx_top = np.mean(x_top)
+    cx_bot = np.mean(x_bot)
+
+    # 6. Calculate normalized horizontal shift (Δx / Total Width)
+    shift = (cx_top - cx_bot) / total_width
+
+    if shift > shift_threshold:
+        return "90_DEG_RIGHT"
+    elif shift < -shift_threshold:
+        return "90_DEG_LEFT"
     else:
-        thresh = gray
-
-    # 3. Extract non-zero (x, y) coordinates
-    points = cv2.findNonZero(thresh)
-    if points is None or len(points) < 3:
-        return "NO_LINE_DETECTED", 0.0, annotated_img
-
-    points = points.squeeze()
-    x = points[:, 0]
-    y = points[:, 1]
-
-    # 4. Fit 2nd-degree polynomial: x = a*y^2 + b*y + c
-    a, b, c = np.polyfit(y, x, 2)
-
-    # 5. Classify direction
-    if abs(a) < curvature_threshold:
-        direction = "STRAIGHT"
-    elif a > 0:
-        direction = "TURNS RIGHT"
-    else:
-        direction = "TURNS LEFT"
-
-    return direction
+        return "STRAIGHT"
