@@ -1,3 +1,6 @@
+
+import sys
+sys.path.append("/usr/lib/python3/dist-packages")
 from Camera import SetupPICamera, RunPICamera, EndPICamera, match_places_ignore_tape_rgb
 from adafruit_servokit import ServoKit
 from DirectionEnum import Direction
@@ -27,7 +30,7 @@ def main():
     while (True):
       img, direction = RunPICamera(camera=camera)
 
-
+      """
       if direction == Direction.RIGHT or direction == Direction.LEFT:
         seenVertex = False
         for vertex in seenVertices:
@@ -41,38 +44,38 @@ def main():
 
       time.sleep(0.2)
       print(len(seenVertices))
+      """
 
-
-    """
+  
 
       match direction:
         case Direction.STRAIGHT:
-          LeftServo.SetThrottle(-1.0)
-          RightServo.SetThrottle(1.0) 
+          LeftServo.SetThrottle(1.0)
+          RightServo.SetThrottle(-1.0) 
         case Direction.RIGHT:
           LeftServo.SetThrottle(-1.0)
-          RightServo.SetThrottle(-1.0) 
+          RightServo.SetThrottle(0) 
 
-          for vertex in seenVertices:
-            print("found visited vertex")
+          #for vertex in seenVertices:
+           # print("found visited vertex")
         case Direction.LEFT:
-          LeftServo.SetThrottle(1.0)
+          LeftServo.SetThrottle(-1.0)
           RightServo.SetThrottle(1.0) 
 
-          print("found visited vertex")
+          #print("found visited vertex")
 
 
       time.sleep(0.2)
       LeftServo.SetThrottle(0.0)
       RightServo.SetThrottle(0.0)
-    """
+  
     
   except KeyboardInterrupt:
     pass
   finally:
     EndPICamera(camera)
-    LeftServo.SetThrottle(0.0)
-    RightServo.SetThrottle(0.0)
+    LeftServo.SetThrottle(None)
+    RightServo.SetThrottle(None)
 
 
 if __name__ == "__main__":
