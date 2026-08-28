@@ -141,7 +141,7 @@ def get_turn_signal(
     return signal, visual_mask
 
 
-
+"""
 # 1. Initialize ORB detector
 orb = cv2.ORB_create(
     nfeatures=1000,
@@ -162,7 +162,7 @@ index_params = dict(
 )
 search_params = dict(checks=50)
 flann = cv2.FlannBasedMatcher(index_params, search_params)
-
+"""
 
 def create_non_tape_mask_rgb(img_rgb: np.ndarray) -> np.ndarray:
     """Detects blue painter's tape directly from an RGB NumPy array."""
@@ -182,6 +182,7 @@ def create_non_tape_mask_rgb(img_rgb: np.ndarray) -> np.ndarray:
 
     # Invert: 255 = keep, 0 = ignore tape
     return cv2.bitwise_not(dilated_blue)
+
 
 
 def match_places_ignore_tape_rgb(
@@ -224,3 +225,85 @@ def match_places_ignore_tape_rgb(
 
     _, inliers = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 4.0)
     return False if inliers is None else bool(int(np.sum(inliers)) >= 15)
+
+
+
+
+#import cv2
+#import numpy as np
+
+# Initialize ORB detector with 1000 keypoints
+orb = cv2.ORB_create(
+    nfeatures=1000,
+    scaleFactor=1.2,
+    nlevels=8,
+    edgeThreshold=15,
+    firstLevel=0,
+    WTA_K=2,
+    scoreType=cv2.ORB_HARRIS_SCORE,
+    patchSize=31,
+    fastThreshold=20,
+)
+
+# Fast FLANN matcher for binary descriptors (LSH)
+FLANN_INDEX_LSH = 6
+index_params = dict(
+    algorithm=FLANN_INDEX_LSH,
+    table_number=6,
+    key_size=12,
+    multi_probe_level=1,
+)
+search_params = dict(checks=50)
+flann = cv2.FlannBasedMatcher(index_params, search_params)
+
+
+def match_places_orb(img1_np: np.ndarray, img2_np: np.ndarray) -> bool:
+    """Takes two (H, W, 3) BGR/RGB or (H, W) grayscale NumPy arrays."""
+    # 1. Convert to grayscale if needed
+    g1 = (
+        cv2.cvtColor(img1_np, cv2.COLOR_BGR2GRAY)
+        if img1_np.ndim == 3
+        else img1_np
+    )
+    g2 = (
+        cv2.cvtColor(img2_np, cv2.COLOR_BGR2GRAY)
+        if img2_np.ndim == 3
+        else img2_np
+    )
+
+    # 2. Extract keypoints & descriptors
+    kp1, des1 = orb.detectAndCompute(g1, None)
+    kp2, des2 = orb.detectAndCompute(g2, None)
+
+    if des1 is None or des2 is None or len(kp1) < 10 or len(kp2) < 10:
+        return False
+
+    # 3. Match descriptors using k-NN (k=2 for Lowe's ratio test)
+    matches = flann.knnMatch(des1, des2, k=2)
+
+    # 4. Filter matches with Lowe's ratio test
+    good_matches = []
+    for m_pair in matches:
+        if len(m_pair) == 2:
+            m, n = m_pair
+            if m.distance < 0.75 * n.distance:
+                good_matches.append(m)
+
+    if len(good_matches) < 8:
+        return False
+
+    # 5. Geometric verification (RANSAC Homography for planar angle shifts)
+    src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(
+        -1, 1, 2
+    )
+    dst_pts = np.float32([kp2[m.trainIdx].pt for m in good_matches]).reshape(
+        -1, 1, 2
+    )
+
+    _, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 4.0)
+
+    if mask is None:
+        return False
+
+    num_inliers = int(np.sum(mask))
+    return num_inliers >= 15  # True if same area verified

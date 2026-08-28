@@ -1,7 +1,7 @@
 
 import sys
 sys.path.append("/usr/lib/python3/dist-packages")
-from Camera import SetupPICamera, RunPICamera, EndPICamera, match_places_ignore_tape_rgb
+from Camera import SetupPICamera, RunPICamera, EndPICamera, match_places_ignore_tape_rgb, match_places_orb
 from adafruit_servokit import ServoKit
 from DirectionEnum import Direction
 from Servo import Servo
@@ -39,7 +39,7 @@ def main():
         if direction == Direction.RIGHT or direction == Direction.LEFT:
           seenVertex = False
           for vertex in seenVertices:
-            if match_places_ignore_tape_rgb(vertex, img):
+            if match_places_orb(vertex, img):
               print("found visited vertex")
               seenVertex = True
               break
