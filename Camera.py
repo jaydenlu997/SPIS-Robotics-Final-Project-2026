@@ -130,7 +130,26 @@ def detect_blue_tape_turn(
  
     return direction, clean_mask
 
+# 1. Initialize ORB detector
+orb = cv2.ORB_create(
+    nfeatures=1000,
+    scaleFactor=1.2,
+    nlevels=8,
+    edgeThreshold=15,
+    patchSize=31,
+    fastThreshold=20,
+)
 
+# FLANN Matcher for binary descriptors
+FLANN_INDEX_LSH = 6
+index_params = dict(
+    algorithm=FLANN_INDEX_LSH,
+    table_number=6,
+    key_size=12,
+    multi_probe_level=1,
+)
+search_params = dict(checks=50)
+flann = cv2.FlannBasedMatcher(index_params, search_params)
 
 
 def create_non_tape_mask_rgb(img_rgb: np.ndarray) -> np.ndarray:
