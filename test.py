@@ -1,18 +1,21 @@
 from adafruit_servokit import ServoKit
+from Servo import Servo
 
 
-servo_channel = 0
-servo_channel1 = 1
+left_servo_channel = 0
+right_servo_channel = 1
 
 
 servo_kit = ServoKit(channels=16)
 
-servo_kit.continuous_servo[servo_channel].set_pulse_width_range(1200, 1800)
-servo_kit.continuous_servo[servo_channel1].set_pulse_width_range(1200, 1800)
+LeftServo = Servo(servoObj=servo_kit.continuous_servo[left_servo_channel])
+RightServo = Servo(servoObj=servo_kit.continuous_servo[right_servo_channel])
+
+
 try:
     while True:
-        servo_kit.continuous_servo[servo_channel].throttle = -1.0
-        servo_kit.continuous_servo[servo_channel1].throttle = 1.0
+        LeftServo.SetThrottle(-1.0)
+        RightServo.SetThrottle(1.0)
 finally:
-    servo_kit.continuous_servo[servo_channel].throttle = None
-    servo_kit.continuous_servo[servo_channel1].throttle = None
+    LeftServo.SetThrottle(0.0)
+    RightServo.SetThrottle(0.0)
