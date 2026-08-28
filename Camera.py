@@ -36,7 +36,7 @@ def RunPICamera(camera: np.ndarray) -> tuple[np.ndarray, Direction]:
     # Grab a frame
     img = camera.capture_array()
 
-    direction, mask = detect_blue_tape_turn(img)
+    direction, mask = get_turn_signal(img)
     print(direction)
 
     cv2.imshow("Modified frame", mask)
@@ -61,51 +61,49 @@ def EndPICamera(camera):
 
 # thanks gemini for handling the ML
 
-def detect_blue_tape_turn(
+def get_turn_signal(
     image: np.ndarray,
-    # Standard blue painter's tape HSV bounds in OpenCV (H: 0-180, S: 0-255, V: 0-255)
     lower_blue: np.ndarray = np.array([95, 80, 50]),
     upper_blue: np.ndarray = np.array([135, 255, 255]),
+    action_zone_ratio: float = 0.65,  # Trigger only when corner reaches bottom 35% of frame
     shift_threshold: float = 0.15
-) -> tuple[Direction, np.ndarray]:
+):
     """
-    Isolates blue painter's tape using HSV thresholding, filters out all other 
-    surrounding colors and background, and classifies the turn.
-    
-    Returns:
-        tuple: (direction, binary_mask)
+    Evaluates an in-memory NumPy image frame of blue painter's tape.
+    Returns strictly: 'LEFT', 'RIGHT', or 'STRAIGHT'.
     """
-
-    # 1. Normalize image dimensions and color space
     if image.ndim == 3 and image.shape[2] == 4:
-        image = image[:, :, :3]  # Drop alpha channel if present
-        
-    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        image = image[:, :, :3]
 
-    # 2. Isolate only the blue tape
+    h_img = image.shape[0]
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV) if image.ndim == 3 else image
     tape_mask = cv2.inRange(hsv, lower_blue, upper_blue)
 
-    # 3. Extract the largest blue contour (discards stray blue noise/dots)
+    # 1. Filter out background and stray blue markers
     contours, _ = cv2.findContours(tape_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
-        return Direction.NO_DETECTED, tape_mask
+        return Direction.STRAIGHT, tape_mask
 
     largest_contour = max(contours, key=cv2.contourArea)
     clean_mask = np.zeros_like(tape_mask)
     cv2.drawContours(clean_mask, [largest_contour], -1, 255, thickness=cv2.FILLED)
 
-    # 4. Get path bounding coordinates
-    y_indices, x_indices = np.where(clean_mask > 0)
-    y_min, y_max = y_indices.min(), y_indices.max()
-    x_min, x_max = x_indices.min(), x_indices.max()
-    
-    total_width = x_max - x_min
-    total_height = y_max - y_min
+    # 2. Get path bounding coordinates
+    y_pts, x_pts = np.where(clean_mask > 0)
+    if len(y_pts) == 0:
+        return Direction.STRAIGHT, tape_mask
 
-    if total_height == 0 or total_width == 0:
-        return Direction.STRAIGHT, clean_mask
+    y_min, y_max = y_pts.min(), y_pts.max()
+    x_min, x_max = x_pts.min(), x_pts.max()
+    total_width = max(1, x_max - x_min)
+    total_height = max(1, y_max - y_min)
 
-    # 5. Extract entry (bottom 15%) and exit (top 15%) slices
+    # 3. Prevent premature triggers (only evaluate turn when corner arrives at action zone)
+    corner_y = y_min
+    if (corner_y / h_img) < action_zone_ratio:
+        return Direction.STRAIGHT, tape_mask
+
+    # 4. Check horizontal centroid shift between exit (top) and entry (bottom)
     h_slice = max(1, int(total_height * 0.15))
     top_slice = clean_mask[y_min : y_min + h_slice, :]
     bot_slice = clean_mask[y_max - h_slice : y_max + 1, :]
@@ -114,21 +112,19 @@ def detect_blue_tape_turn(
     _, x_bot = np.where(bot_slice > 0)
 
     if len(x_top) == 0 or len(x_bot) == 0:
-        return Direction.STRAIGHT, clean_mask
+        return Direction.STRAIGHT, tape_mask
 
-    # 6. Direction classification via horizontal centroid shift (Δx / Total Width)
-    cx_top = np.mean(x_top)
-    cx_bot = np.mean(x_bot)
-    normalized_shift = (cx_top - cx_bot) / total_width
+    shift = (np.mean(x_top) - np.mean(x_bot)) / total_width
 
-    if normalized_shift > shift_threshold:
-        direction = Direction.RIGHT
-    elif normalized_shift < -shift_threshold:
-        direction = Direction.LEFT
+    # 5. Output signal
+    if shift > shift_threshold:
+        return Direction.RIGHT, tape_mask
+    elif shift < -shift_threshold:
+        return Direction.LEFT, tape_mask
     else:
-        direction = Direction.STRAIGHT
- 
-    return direction, clean_mask
+        return Direction.STRAIGHT, tape_mask
+
+
 
 # 1. Initialize ORB detector
 orb = cv2.ORB_create(
