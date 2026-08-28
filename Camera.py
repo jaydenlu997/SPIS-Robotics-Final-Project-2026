@@ -65,64 +65,80 @@ def get_turn_signal(
     image: np.ndarray,
     lower_blue: np.ndarray = np.array([95, 80, 50]),
     upper_blue: np.ndarray = np.array([135, 255, 255]),
-    action_zone_ratio: float = 0.65,  # Trigger only when corner reaches bottom 35% of frame
+    action_zone_ratio: float = 0.65,  # Corner must reach bottom 35% of frame (y >= 0.65 * H) to trigger turn
     shift_threshold: float = 0.15
 ):
     """
-    Evaluates an in-memory NumPy image frame of blue painter's tape.
-    Returns strictly: 'LEFT', 'RIGHT', or 'STRAIGHT'.
+    Evaluates blue painter's tape and returns strictly one of:
+    'left', 'right', 'straight', or 'not detected'.
+    
+    Also returns a 3-channel visual feedback mask for display.
     """
+    h_img, w_img = image.shape[:2]
+    
+    # 1. Create visualization canvas
+    visual_mask = np.zeros((h_img, w_img, 3), dtype=np.uint8)
+    
+    # Draw the trigger zone boundary line (Cyan)
+    action_y = int(h_img * action_zone_ratio)
+    cv2.line(visual_mask, (0, action_y), (w_img, action_y), (255, 255, 0), 1)
+
+    # 2. Convert and isolate blue tape
     if image.ndim == 3 and image.shape[2] == 4:
         image = image[:, :, :3]
-
-    h_img = image.shape[0]
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV) if image.ndim == 3 else image
     tape_mask = cv2.inRange(hsv, lower_blue, upper_blue)
 
-    # 1. Filter out background and stray blue markers
+    # 3. Extract largest blue contour
     contours, _ = cv2.findContours(tape_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
-        return Direction.STRAIGHT, tape_mask
+        return Direction.NO_DETECTED, visual_mask
 
     largest_contour = max(contours, key=cv2.contourArea)
-    clean_mask = np.zeros_like(tape_mask)
-    cv2.drawContours(clean_mask, [largest_contour], -1, 255, thickness=cv2.FILLED)
+    tape_binary = np.zeros_like(tape_mask)
+    cv2.drawContours(tape_binary, [largest_contour], -1, 255, thickness=cv2.FILLED)
+    
+    # Render detected tape in blue on the visual mask
+    visual_mask[tape_binary > 0] = [255, 120, 0]
 
-    # 2. Get path bounding coordinates
-    y_pts, x_pts = np.where(clean_mask > 0)
-    if len(y_pts) == 0:
-        return Direction.STRAIGHT, tape_mask
-
+    # 4. Extract Path Geometry
+    y_pts, x_pts = np.where(tape_binary > 0)
     y_min, y_max = y_pts.min(), y_pts.max()
     x_min, x_max = x_pts.min(), x_pts.max()
     total_width = max(1, x_max - x_min)
     total_height = max(1, y_max - y_min)
 
-    # 3. Prevent premature triggers (only evaluate turn when corner arrives at action zone)
-    corner_y = y_min
-    if (corner_y / h_img) < action_zone_ratio:
-        return Direction.STRAIGHT, tape_mask
-
-    # 4. Check horizontal centroid shift between exit (top) and entry (bottom)
+    # 5. Measure Entry and Exit Centroids
     h_slice = max(1, int(total_height * 0.15))
-    top_slice = clean_mask[y_min : y_min + h_slice, :]
-    bot_slice = clean_mask[y_max - h_slice : y_max + 1, :]
+    top_slice = tape_binary[y_min : y_min + h_slice, :]
+    bot_slice = tape_binary[y_max - h_slice : y_max + 1, :]
 
     _, x_top = np.where(top_slice > 0)
     _, x_bot = np.where(bot_slice > 0)
 
     if len(x_top) == 0 or len(x_bot) == 0:
-        return Direction.STRAIGHT, tape_mask
+        return Direction.STRAIGHT, visual_mask
 
-    shift = (np.mean(x_top) - np.mean(x_bot)) / total_width
+    cx_top = int(np.mean(x_top))
+    cx_bot = int(np.mean(x_bot))
+    shift = (cx_top - cx_bot) / total_width
 
-    # 5. Output signal
+    # Draw entry (green) and exit (red) centroid points
+    cv2.circle(visual_mask, (cx_top, y_min + h_slice // 2), 6, (0, 0, 255), -1)
+    cv2.circle(visual_mask, (cx_bot, y_max - h_slice // 2), 6, (0, 255, 0), -1)
+
+    # 6. Direction & Proximity Gating
+    # If a turn is detected, check if the corner (y_min) has crossed the trigger line
+    corner_reached = y_min >= action_y
+
     if shift > shift_threshold:
-        return Direction.RIGHT, tape_mask
+        signal = Direction.RIGHT if corner_reached else Direction.STRAIGHT
     elif shift < -shift_threshold:
-        return Direction.LEFT, tape_mask
+        signal = Direction.LEFT if corner_reached else Direction.STRAIGHT
     else:
-        return Direction.STRAIGHT, tape_mask
+        signal = Direction.STRAIGHT
+
+    return signal, visual_mask
 
 
 
