@@ -1,3 +1,7 @@
+
+import sys
+sys.path.append("/usr/lib/python3/dist-packages")
+
 # Libraries to control the camera
 from picamera2 import Picamera2
 import cv2
