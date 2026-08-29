@@ -13,10 +13,10 @@ import pigpio
 
 
 # Set GPIO Pins (uses BCM numbering)
-GPIO_Ain1 = OutputDevice(17)
-GPIO_Ain2 = OutputDevice(27)
-GPIO_Bin1 = OutputDevice(5)
-GPIO_Bin2 = OutputDevice(6)
+GPIO_Ain1 = OutputDevice(24)
+GPIO_Ain2 = OutputDevice(23)
+GPIO_Bin1 = OutputDevice(16)
+GPIO_Bin2 = OutputDevice(20)
 
 # Set GPIO pins for harware PWM
 # Note: There are only two hardware PWMs

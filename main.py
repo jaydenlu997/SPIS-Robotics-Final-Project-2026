@@ -19,8 +19,13 @@ def main():
   RightServo = Servo(servoObj=servo_kit.continuous_servo[right_servo_channel])
 
   lastTime = time.time()
+  lastTurnTime = time.time()
 
+  vertexCtr = 0
+  
   seenVertices = []
+  graphMap = [0]
+
 
 
   try:
@@ -32,8 +37,9 @@ def main():
     while (True):
       img, direction = RunPICamera(camera=camera)
 
+      """
+      # run vertex recognition every 0.5 sec
       currentTime = time.time()
-
       if currentTime - lastTime > 0.5:
 
         if direction == Direction.RIGHT or direction == Direction.LEFT:
@@ -46,30 +52,42 @@ def main():
         
           if not seenVertex:
             seenVertices.append(img)
+            vertexCtr += 1
+
         
         lastTime = currentTime
-        
+      """
 
-  
       match direction:
           case Direction.STRAIGHT:
               LeftServo.SetThrottle(1.0)
               RightServo.SetThrottle(-1.0) 
+
           case Direction.RIGHT:
+              LeftServo.SetThrottle(None)
+              RightServo.SetThrottle(None) 
+
+              time.sleep(0.5)
+
               LeftServo.SetThrottle(1.0)
               RightServo.SetThrottle(None) 
+
+              time.sleep(0.5)
 
           #for vertex in seenVertices:
           # print("found visited vertex")
           case Direction.LEFT:
               LeftServo.SetThrottle(None)
+              RightServo.SetThrottle(None) 
+
+              time.sleep(0.5)
+
+              LeftServo.SetThrottle(None)
               RightServo.SetThrottle(-1) 
 
+              time.sleep(0.5)
 
 
-      time.sleep(0.2)
-      LeftServo.SetThrottle(0.0)
-      RightServo.SetThrottle(0.0)
   
     
   except KeyboardInterrupt:
