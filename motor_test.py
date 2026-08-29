@@ -16,8 +16,9 @@ right = DCMotor( # Motor b
 print("start")
 
 
+camera = SetupPICamera()
+
 try:
-  camera = SetupPICamera()
 
   print("Starting the camera ...")
 
