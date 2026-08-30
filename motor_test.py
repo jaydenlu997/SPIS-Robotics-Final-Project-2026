@@ -1,5 +1,6 @@
 from Motor import DCMotor
 from Camera import SetupPICamera, RunPICamera, EndPICamera
+import time
 
 left = DCMotor( # motor a
   in1=25,
@@ -28,8 +29,26 @@ try:
   while True:
       RunPICamera(camera)
       
-      left.move(-1)
-      right.move(1)
+      #LeftServo.SetThrottle(None)
+      #RightServo.SetThrottle(None) 
+
+      left.stop()
+      right.stop()
+
+      time.sleep(0.5)
+
+      #LeftServo.SetThrottle(1.0)
+      #RightServo.SetThrottle(None) 
+
+      left.move(0.5)
+      right.stop()
+
+      time.sleep(0.5)
+
+      left.stop()
+      right.stop()
+
+      break
 except KeyboardInterrupt:
     pass
 finally:

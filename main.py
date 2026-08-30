@@ -26,7 +26,7 @@ def main():
   lastTurnTime = time.time()
 
   # time to roughly keep track of our position
-  lastCoordTime = time.time()
+  startCoordTime = time.time()
   xCoord = 0
   yCoord = 0
 
@@ -67,6 +67,10 @@ def main():
         
         lastTime = currentTime
       """
+
+      currentTime = time.time()
+
+   
 
       match direction:
           case Direction.STRAIGHT:
@@ -128,6 +132,7 @@ def main():
 
     motor_left.move(0)
     motor_right.move(0)
+
 
 
 if __name__ == "__main__":
