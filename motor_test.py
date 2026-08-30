@@ -8,39 +8,38 @@ right = DCMotor(in1=12, in2=16, pwm=24)
 
 camera = SetupPICamera()
 
-def turn_right_visual(camera, left_motor, right_motor, speed=0.45, timeout=3.5):
-    print("Starting visual turn right...")
-    # Differential in-place spin
-    left_motor.move(speed)
-    right_motor.move(-speed)
+def turn_right_visual(camera, left_motor, right_motor, turn_speed=1.0, timeout=3.5):
+    print("Starting visual turn right (power 1.0)...")
+    # Full power to left motor to swing right
+    left_motor.move(turn_speed)
+    right_motor.stop()
     
-    time.sleep(0.35)  # Clear the initial turn angle
+    time.sleep(0.35)  # Initial kick to clear the corner angle
     
     start_time = time.time()
     while time.time() - start_time < timeout:
         img, direction = RunPICamera(camera)
         if direction == Direction.STRAIGHT:
-            print("Successfully aligned to new path!")
+            print("Successfully aligned to straight path!")
             break
             
     left_motor.stop()
     right_motor.stop()
 
 
+def turn_left_visual(camera, left_motor, right_motor, turn_speed=1.0, timeout=3.5):
+    print("Starting visual turn left (power 1.0)...")
+    # Full power to right motor to swing left
+    left_motor.stop()
+    right_motor.move(turn_speed)
 
-def turn_left_visual(camera, left_motor, right_motor, speed=0.45, timeout=3.5):
-    print("Starting visual turn left...")
-    # Differential in-place spin left
-    left_motor.move(-speed)
-    right_motor.move(speed)
-
-    time.sleep(0.35)  # Clear the initial turn angle
+    time.sleep(0.35)  # Initial kick to clear the corner angle
 
     start_time = time.time()
     while time.time() - start_time < timeout:
         img, direction = RunPICamera(camera)
         if direction == Direction.STRAIGHT:
-            print("Successfully aligned to new path!")
+            print("Successfully aligned to straight path!")
             break
 
     left_motor.stop()
@@ -58,12 +57,12 @@ try:
         img, direction = RunPICamera(camera)
 
         if direction == Direction.STRAIGHT:
-            left.move(0.5)
-            right.move(0.5)
+            left.move(0.65)
+            right.move(0.65)
         elif direction == Direction.RIGHT:
-            turn_right_visual(camera, left, right)
+            turn_right_visual(camera, left, right, turn_speed=1.0)
         elif direction == Direction.LEFT:
-            turn_left_visual(camera, left, right)
+            turn_left_visual(camera, left, right, turn_speed=1.0)
         elif direction == Direction.NO_DETECTED:
             left.stop()
             right.stop()
