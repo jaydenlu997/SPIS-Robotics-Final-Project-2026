@@ -40,15 +40,15 @@ try:
       #LeftServo.SetThrottle(1.0)
       #RightServo.SetThrottle(None) 
 
-      left.move(0.5)
+      left.move(1)
       right.stop()
 
-      time.sleep(0.5)
+      time.sleep(1.55)
 
       left.stop()
       right.stop()
 
-      break
+      
 except KeyboardInterrupt:
     pass
 finally:
