@@ -33,20 +33,11 @@ def SetupPICamera():
 def RunPICamera(camera: np.ndarray) -> tuple[np.ndarray, Direction]:
     # Grab a frame
     img = camera.capture_array()
-    
-    # Show the frame (OpenCV assumes BRG color representation)
-    #cv2.imshow("Camera", img)
-
-    # Grab a frame
-    img = camera.capture_array()
 
     direction, mask = get_turn_signal(img)
     print(direction)
 
-    #cv2.imshow("Modified frame", mask)
-    
-    # The waitKey command is needed to force openCV to show the image
-    # It looks for a keystroke for x ms (with x the argument) 
+    # The waitKey command is needed to force openCV to show the image if displaying windows
     cv2.waitKey(1)
 
     return img, direction
