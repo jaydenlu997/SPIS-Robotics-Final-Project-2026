@@ -53,9 +53,14 @@ try:
     time.sleep(1)  # Warm up camera
 
     print("Running motor test loop (Ctrl+C to stop)...")
+
     while True:
         img, direction = RunPICamera(camera)
 
+        left.move(0.5)
+        right.move(0.5)
+
+        """
         if direction == Direction.STRAIGHT:
             left.move(0.5)
             right.move(0.5)
@@ -66,6 +71,7 @@ try:
         elif direction == Direction.NO_DETECTED:
             left.stop()
             right.stop()
+        """
 
 except KeyboardInterrupt:
     pass
