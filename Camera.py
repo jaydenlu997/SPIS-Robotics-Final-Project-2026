@@ -15,29 +15,50 @@ def SetupPICamera():
     # Initialize the camera
     camera = Picamera2()
 
-    # Configure the camera
+    # Find sensor mode with the largest area to maximize optical Field-of-View (no digital crop)
+    sensor_config = {}
+    try:
+        modes = camera.sensor_modes
+        if modes:
+            best_mode = max(modes, key=lambda m: m.get("size", (0, 0))[0] * m.get("size", (0, 0))[1])
+            sensor_config = {"output_size": best_mode["size"]}
+    except Exception:
+        pass
+
+    # Configure camera: full sensor readout scaled to 640x480 for fast CV processing
     config = camera.create_video_configuration(
-        #-----------------------------------------------------
-        # Picam natively uses RGB, but OpenCV, which we use for manipulating
-        # and displaying images, uses BGR. So we will work with BGR.
-        # We can change the settings of picam to give us BGR instead, and
-        # we don't need to do an explic conversion. Confusingly, "RGB888"
-        # means that frames will be grabbed BGR format (and vice versa).
-        #-----------------------------------------------------
-        main = {"size": (640, 480), "format": "RGB888"},
+        main={"size": (640, 480), "format": "RGB888"},
+        sensor=sensor_config if sensor_config else None,
     )
     camera.configure(config)
 
+    # Set up resizable display windows scaled up on screen
+    try:
+        cv2.namedWindow("Camera", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("Camera", 800, 600)
+        cv2.namedWindow("Modified frame", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("Modified frame", 800, 600)
+    except Exception:
+        pass
+
     return camera
 
-def RunPICamera(camera: np.ndarray) -> tuple[np.ndarray, Direction]:
+def RunPICamera(camera) -> tuple[np.ndarray, Direction]:
     # Grab a frame
     img = camera.capture_array()
 
     direction, mask = get_turn_signal(img)
     print(direction)
 
-    # The waitKey command is needed to force openCV to show the image if displaying windows
+    # Display both live feed and CV detection mask
+    try:
+        #cv2.imshow("Camera", img)
+        #cv2.imshow("Modified frame", mask)
+        pass
+    except Exception:
+        pass
+
+    # Process window events (1ms timeout)
     cv2.waitKey(1)
 
     return img, direction
