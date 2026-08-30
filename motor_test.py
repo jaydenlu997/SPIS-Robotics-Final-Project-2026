@@ -8,13 +8,13 @@ right = DCMotor(in1=12, in2=16, pwm=24)
 
 camera = SetupPICamera()
 
-def turn_right_visual(camera, left_motor, right_motor, turn_speed=1.0, timeout=3.5):
-    print("Starting visual turn right (power 1.0)...")
-    # Full power to left motor to swing right
+def turn_right_visual(camera, left_motor, right_motor, turn_speed=0.9, timeout=3.5):
+    print(f"Starting in-place turn right (power {turn_speed})...")
+    # Differential in-place spin: left forward, right backward (zero turning radius)
     left_motor.move(turn_speed)
-    right_motor.stop()
+    right_motor.move(-turn_speed)
     
-    time.sleep(0.35)  # Initial kick to clear the corner angle
+    time.sleep(0.15)  # Brief initial kick to start rotating off the current angle
     
     start_time = time.time()
     while time.time() - start_time < timeout:
@@ -27,13 +27,13 @@ def turn_right_visual(camera, left_motor, right_motor, turn_speed=1.0, timeout=3
     right_motor.stop()
 
 
-def turn_left_visual(camera, left_motor, right_motor, turn_speed=1.0, timeout=3.5):
-    print("Starting visual turn left (power 1.0)...")
-    # Full power to right motor to swing left
-    left_motor.stop()
+def turn_left_visual(camera, left_motor, right_motor, turn_speed=0.9, timeout=3.5):
+    print(f"Starting in-place turn left (power {turn_speed})...")
+    # Differential in-place spin: left backward, right forward (zero turning radius)
+    left_motor.move(-turn_speed)
     right_motor.move(turn_speed)
 
-    time.sleep(0.35)  # Initial kick to clear the corner angle
+    time.sleep(0.15)  # Brief initial kick to start rotating off the current angle
 
     start_time = time.time()
     while time.time() - start_time < timeout:

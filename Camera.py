@@ -69,7 +69,7 @@ def get_turn_signal(
     image: np.ndarray,
     lower_blue: np.ndarray = np.array([95, 80, 50]),
     upper_blue: np.ndarray = np.array([135, 255, 255]),
-    action_zone_ratio: float = 0.35,  # Corner must reach bottom 35% of frame (y >= 0.65 * H) to trigger turn
+    action_zone_ratio: float = 0.55,  # Corner must reach bottom 35% of frame (y >= 0.65 * H) to trigger turn
     shift_threshold: float = 0.15
 ):
     """
