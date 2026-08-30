@@ -1,6 +1,13 @@
 
+import os
 import sys
 sys.path.append("/usr/lib/python3/dist-packages")
+
+# Set to True when connected to a monitor / desktop to see live CV window previews
+ENABLE_VISUAL_PREVIEW = False
+
+if not ENABLE_VISUAL_PREVIEW:
+    os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 # Libraries to control the camera
 from picamera2 import Picamera2
@@ -8,7 +15,7 @@ import cv2
 import numpy as np
 from Direction import Direction
 
-def SetupPICamera():
+def SetupPICamera(show_preview: bool = ENABLE_VISUAL_PREVIEW):
 
     print("Setting up the camera ...")
 
@@ -32,43 +39,43 @@ def SetupPICamera():
     )
     camera.configure(config)
 
-    # Set up resizable display windows scaled up on screen
-    try:
-        cv2.namedWindow("Camera", cv2.WINDOW_NORMAL)
-        cv2.resizeWindow("Camera", 800, 600)
-        cv2.namedWindow("Modified frame", cv2.WINDOW_NORMAL)
-        cv2.resizeWindow("Modified frame", 800, 600)
-    except Exception:
-        pass
+    if show_preview:
+        try:
+            cv2.namedWindow("Camera", cv2.WINDOW_NORMAL)
+            cv2.resizeWindow("Camera", 800, 600)
+            cv2.namedWindow("Modified frame", cv2.WINDOW_NORMAL)
+            cv2.resizeWindow("Modified frame", 800, 600)
+        except Exception:
+            pass
 
     return camera
 
-def RunPICamera(camera) -> tuple[np.ndarray, Direction]:
+def RunPICamera(camera, show_preview: bool = ENABLE_VISUAL_PREVIEW) -> tuple[np.ndarray, Direction]:
     # Grab a frame
     img = camera.capture_array()
 
     direction, mask = get_turn_signal(img)
     print(direction)
 
-    # Display both live feed and CV detection mask
-    try:
-        #cv2.imshow("Camera", img)
-        #cv2.imshow("Modified frame", mask)
-        pass
-    except Exception:
-        pass
-
-    # Process window events (1ms timeout)
-    cv2.waitKey(1)
+    if show_preview:
+        try:
+            cv2.imshow("Camera", img)
+            cv2.imshow("Modified frame", mask)
+            cv2.waitKey(1)
+        except Exception:
+            pass
 
     return img, direction
-        
-        
 
-def EndPICamera(camera):
+
+def EndPICamera(camera, show_preview: bool = ENABLE_VISUAL_PREVIEW):
     # Clean up the resources
     print("Stopping the camera ...")
-    cv2.destroyAllWindows()
+    if show_preview:
+        try:
+            cv2.destroyAllWindows()
+        except Exception:
+            pass
     camera.stop()
     camera.close()
 
