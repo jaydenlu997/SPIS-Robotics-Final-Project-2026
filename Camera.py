@@ -6,7 +6,7 @@ sys.path.append("/usr/lib/python3/dist-packages")
 from picamera2 import Picamera2
 import cv2
 import numpy as np
-from DirectionEnum import Direction
+from Direction import Direction
 
 def SetupPICamera():
 
