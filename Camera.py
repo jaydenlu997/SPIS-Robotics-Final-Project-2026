@@ -35,7 +35,7 @@ def RunPICamera(camera: np.ndarray) -> tuple[np.ndarray, Direction]:
     img = camera.capture_array()
     
     # Show the frame (OpenCV assumes BRG color representation)
-    cv2.imshow("Camera", img)
+    #cv2.imshow("Camera", img)
 
     # Grab a frame
     img = camera.capture_array()
@@ -43,7 +43,7 @@ def RunPICamera(camera: np.ndarray) -> tuple[np.ndarray, Direction]:
     direction, mask = get_turn_signal(img)
     print(direction)
 
-    cv2.imshow("Modified frame", mask)
+    #cv2.imshow("Modified frame", mask)
     
     # The waitKey command is needed to force openCV to show the image
     # It looks for a keystroke for x ms (with x the argument) 
