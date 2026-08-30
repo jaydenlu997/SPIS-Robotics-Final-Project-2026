@@ -60,7 +60,7 @@ try:
         left.move(0.5)
         right.move(0.5)
 
-        """
+
         if direction == Direction.STRAIGHT:
             left.move(0.5)
             right.move(0.5)
@@ -69,9 +69,11 @@ try:
         elif direction == Direction.LEFT:
             turn_left_visual(camera, left, right)
         elif direction == Direction.NO_DETECTED:
-            left.stop()
-            right.stop()
-        """
+            #left.stop()
+            #right.stop()
+            print("no line detected")
+            continue
+
 
 except KeyboardInterrupt:
     pass
