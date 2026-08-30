@@ -8,17 +8,23 @@ right = DCMotor(in1=12, in2=16, pwm=24)
 
 camera = SetupPICamera()
 
-def turn_right_visual(camera, left_motor, right_motor, turn_speed=0.95, min_turn_time=0.4, timeout=3.5):
-    print(f"Starting in-place turn right (power {turn_speed})...")
+# Tunable parameters
+DRIVE_SPEED = 0.65       # Forward straight speed (0.0 to 1.0)
+TURN_SPEED = 1.0         # Turning power (0.0 to 1.0)
+MIN_TURN_DURATION = 0.85  # Minimum time (seconds) to rotate before checking alignment
+NO_DETECTED_THRESHOLD = 4 # Consecutive frames without tape before stopping
+
+def turn_right_visual(camera, left_motor, right_motor, turn_speed=TURN_SPEED, min_turn_time=MIN_TURN_DURATION, timeout=4.0):
+    print(f"Starting in-place turn right (power {turn_speed}, min_time {min_turn_time}s)...")
     left_motor.move(turn_speed)
     right_motor.move(-turn_speed)
     
-    # Phase 1: Guaranteed breakaway time (sleep without spamming camera)
+    # Phase 1: Guaranteed rotation time to get close to 90 degrees
     time.sleep(min_turn_time)
     
     start_time = time.time()
     
-    # Phase 2: Require 2 consecutive STRAIGHT frames to confirm alignment on the new line
+    # Phase 2: Require consecutive STRAIGHT frames to confirm alignment on the new line
     straight_confirmations = 0
     while time.time() - start_time < timeout:
         img, direction = RunPICamera(camera)
@@ -35,17 +41,17 @@ def turn_right_visual(camera, left_motor, right_motor, turn_speed=0.95, min_turn
     right_motor.stop()
 
 
-def turn_left_visual(camera, left_motor, right_motor, turn_speed=0.95, min_turn_time=0.4, timeout=3.5):
-    print(f"Starting in-place turn left (power {turn_speed})...")
+def turn_left_visual(camera, left_motor, right_motor, turn_speed=TURN_SPEED, min_turn_time=MIN_TURN_DURATION, timeout=4.0):
+    print(f"Starting in-place turn left (power {turn_speed}, min_time {min_turn_time}s)...")
     left_motor.move(-turn_speed)
     right_motor.move(turn_speed)
 
-    # Phase 1: Guaranteed breakaway time (sleep without spamming camera)
+    # Phase 1: Guaranteed rotation time to get close to 90 degrees
     time.sleep(min_turn_time)
 
     start_time = time.time()
     
-    # Phase 2: Require 2 consecutive STRAIGHT frames to confirm alignment on the new line
+    # Phase 2: Require consecutive STRAIGHT frames to confirm alignment on the new line
     straight_confirmations = 0
     while time.time() - start_time < timeout:
         img, direction = RunPICamera(camera)
@@ -77,14 +83,14 @@ try:
 
         if direction == Direction.STRAIGHT:
             no_detected_count = 0
-            left.move(0.65)
-            right.move(0.65)
+            left.move(DRIVE_SPEED)
+            right.move(DRIVE_SPEED)
         elif direction == Direction.RIGHT:
             no_detected_count = 0
-            turn_right_visual(camera, left, right, turn_speed=0.95)
+            turn_right_visual(camera, left, right, turn_speed=TURN_SPEED)
         elif direction == Direction.LEFT:
             no_detected_count = 0
-            turn_left_visual(camera, left, right, turn_speed=0.95)
+            turn_left_visual(camera, left, right, turn_speed=TURN_SPEED)
         elif direction == Direction.NO_DETECTED:
             no_detected_count += 1
             if no_detected_count >= NO_DETECTED_THRESHOLD:
