@@ -277,17 +277,17 @@ def get_available_paths(
             left_extent = x_cross.min()
             right_extent = x_cross.max()
             
-            # LEFT path: does the crossbar extend all the way to the left edge of the camera view?
-            if left_extent < (w_img * 0.15):
+            # LEFT path: crossbar extends left of the stem AND touches the left edge
+            if stem_cx - left_extent > (stem_width * 1.5) and left_extent < (w_img * 0.15):
                 paths.append(Direction.LEFT)
                 
-            # RIGHT path: does the crossbar extend all the way to the right edge of the camera view?
-            if right_extent > (w_img * 0.85):
+            # RIGHT path: crossbar extends right of the stem AND touches the right edge
+            if right_extent - stem_cx > (stem_width * 1.5) and right_extent > (w_img * 0.85):
                 paths.append(Direction.RIGHT)
                 
         # STRAIGHT path: does the tape continue significantly above the crossbar?
-        # A normal crossbar thickness is maybe 40-50 pixels. If it extends > 10% of image above the crossbar center, it's a path.
-        if crossbar_y - y_min > (h_img * 0.1): 
+        # A 90-degree corner's horizontal arm has thickness, so we require it to extend > 20% of the image height above the crossbar center.
+        if crossbar_y - y_min > (h_img * 0.2): 
             paths.append(Direction.STRAIGHT)
             
         cv2.line(visual_mask, (0, crossbar_y), (w_img, crossbar_y), (0, 255, 255), 2)
