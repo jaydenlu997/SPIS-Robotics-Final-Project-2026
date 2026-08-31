@@ -277,12 +277,12 @@ def get_available_paths(
             left_extent = x_cross.min()
             right_extent = x_cross.max()
             
-            # LEFT path: does the crossbar extend significantly left of the stem?
-            if stem_cx - left_extent > (stem_width * 0.8) and stem_cx - left_extent > (w_img * 0.04):
+            # LEFT path: does the crossbar extend all the way to the left edge of the camera view?
+            if left_extent < (w_img * 0.15):
                 paths.append(Direction.LEFT)
                 
-            # RIGHT path: does the crossbar extend significantly right of the stem?
-            if right_extent - stem_cx > (stem_width * 0.8) and right_extent - stem_cx > (w_img * 0.04):
+            # RIGHT path: does the crossbar extend all the way to the right edge of the camera view?
+            if right_extent > (w_img * 0.85):
                 paths.append(Direction.RIGHT)
                 
         # STRAIGHT path: does the tape continue significantly above the crossbar?
