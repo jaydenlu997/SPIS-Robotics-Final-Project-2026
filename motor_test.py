@@ -13,6 +13,7 @@ DRIVE_SPEED = 0.65       # Forward straight speed (0.0 to 1.0)
 TURN_SPEED = 1.0         # Turning power (0.0 to 1.0)
 MIN_TURN_DURATION = 0.85  # Minimum time (seconds) to rotate before checking alignment
 NO_DETECTED_THRESHOLD = 4 # Consecutive frames without tape before stopping
+STRAIGHT_KP = 1.3        # Proportional gain for straight driving micro-adjustments
 
 def turn_right_visual(camera, left_motor, right_motor, turn_speed=TURN_SPEED, min_turn_time=MIN_TURN_DURATION, timeout=4.0):
     print(f"Starting in-place turn right (power {turn_speed}, min_time {min_turn_time}s)...")
@@ -84,18 +85,21 @@ try:
         if direction == Direction.STRAIGHT:
             no_detected_count = 0
             
-            # Proportional controller for micro-adjustments
-            kp = 1.3
-            
             # Calculate adjusted speeds based on shift
-            # If shift is positive, the line is to the right, so we need to turn right slightly
-            left_speed = max(0.0, min(1.0, DRIVE_SPEED + shift * kp))
-            right_speed = max(0.0, min(1.0, DRIVE_SPEED - shift * kp))
+            # Instead of speeding up the outer wheel (which causes surging),
+            # we only slow down the inner wheel to steer.
+            left_speed = DRIVE_SPEED
+            right_speed = DRIVE_SPEED
+            
+            if shift > 0:
+                # Steer right: slow down the right motor
+                right_speed = max(0.0, DRIVE_SPEED - (shift * STRAIGHT_KP))
+            else:
+                # Steer left: slow down the left motor (shift is negative)
+                left_speed = max(0.0, DRIVE_SPEED + (shift * STRAIGHT_KP))
             
             left.move(left_speed)
             right.move(right_speed)
-
-            time.sleep(0.2)
         elif direction == Direction.RIGHT:
             no_detected_count = 0
 

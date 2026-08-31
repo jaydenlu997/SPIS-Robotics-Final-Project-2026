@@ -169,7 +169,7 @@ def get_turn_signal(
 
     # A turn is characterized by a wide horizontal segment at the top 
     # compared to the vertical segment at the bottom.
-    is_corner = width_top > (width_bot * 1.25) and width_top > (w_img * 0.08)
+    is_corner = width_top > (width_bot * 1.15) and width_top > (w_img * 0.05)
 
     # If a turn is detected, check if the corner (y_min) has crossed the trigger line
     action_y = int(h_img * action_zone_ratio)
@@ -178,9 +178,9 @@ def get_turn_signal(
     signal = Direction.STRAIGHT
     if is_corner and corner_reached:
         # Which way does the wide top segment extend relative to the bottom stem?
-        if cx_top > cx_bot + (w_img * 0.04):
+        if cx_top > cx_bot + (w_img * 0.02):
             signal = Direction.RIGHT
-        elif cx_top < cx_bot - (w_img * 0.04):
+        elif cx_top < cx_bot - (w_img * 0.02):
             signal = Direction.LEFT
 
     return signal, visual_mask, shift
