@@ -230,7 +230,7 @@ def get_available_paths(
 
     largest_contour = max(contours, key=cv2.contourArea)
     
-    
+
     tape_binary = np.zeros_like(tape_mask)
     cv2.drawContours(tape_binary, [largest_contour], -1, 255, thickness=cv2.FILLED)
     visual_mask[tape_binary > 0] = [255, 120, 0]
@@ -279,12 +279,12 @@ def get_available_paths(
             left_extent = x_cross.min()
             right_extent = x_cross.max()
             
-            # LEFT path: crossbar extends left of the stem AND touches the left edge
-            if stem_cx - left_extent > (stem_width * 1.5) and left_extent < (w_img * 0.15):
+            # LEFT path: crossbar extends left of the stem
+            if stem_cx - left_extent > (stem_width * 1.25) and stem_cx - left_extent > (w_img * 0.05):
                 paths.append(Direction.LEFT)
                 
-            # RIGHT path: crossbar extends right of the stem AND touches the right edge
-            if right_extent - stem_cx > (stem_width * 1.5) and right_extent > (w_img * 0.85):
+            # RIGHT path: crossbar extends right of the stem
+            if right_extent - stem_cx > (stem_width * 1.25) and right_extent - stem_cx > (w_img * 0.05):
                 paths.append(Direction.RIGHT)
                 
         # STRAIGHT path: check if there is a vertical stem above the crossbar
