@@ -131,8 +131,24 @@ def get_turn_signal(
     total_width = max(1, x_max - x_min)
     total_height = max(1, y_max - y_min)
 
-    # 5. Measure Entry and Exit Centroids
-    h_slice = max(1, int(total_height * 0.15))
+    # 5. Calculate Center of Mass for Proportional Shift
+    M = cv2.moments(largest_contour)
+    if M["m00"] != 0:
+        cx = int(M["m10"] / M["m00"])
+        cy = int(M["m01"] / M["m00"])
+    else:
+        cx = w_img // 2
+        cy = h_img // 2
+    
+    # Shift is strictly based on how far the center of the tape is from the center of the screen.
+    # This naturally centers the robot on the tape and fixes physical veering!
+    shift = (cx - (w_img / 2)) / (w_img / 2)  # Range [-1.0, 1.0]
+
+    # Draw centroid
+    cv2.circle(visual_mask, (cx, cy), 8, (255, 0, 255), -1)
+
+    # 6. Detect Corners
+    h_slice = max(1, int(total_height * 0.25))
     top_slice = tape_binary[y_min : y_min + h_slice, :]
     bot_slice = tape_binary[y_max - h_slice : y_max + 1, :]
 
@@ -140,26 +156,32 @@ def get_turn_signal(
     _, x_bot = np.where(bot_slice > 0)
 
     if len(x_top) == 0 or len(x_bot) == 0:
-        return Direction.STRAIGHT, visual_mask, 0.0
+        return Direction.STRAIGHT, visual_mask, shift
+
+    width_top = x_top.max() - x_top.min()
+    width_bot = x_bot.max() - x_bot.min()
 
     cx_top = int(np.mean(x_top))
     cx_bot = int(np.mean(x_bot))
-    shift = (cx_top - cx_bot) / total_width
 
-    # Draw entry (green) and exit (red) centroid points
     cv2.circle(visual_mask, (cx_top, y_min + h_slice // 2), 6, (0, 0, 255), -1)
     cv2.circle(visual_mask, (cx_bot, y_max - h_slice // 2), 6, (0, 255, 0), -1)
 
-    # 6. Direction & Proximity Gating
+    # A turn is characterized by a wide horizontal segment at the top 
+    # compared to the vertical segment at the bottom.
+    is_corner = width_top > (width_bot * 1.25) and width_top > (w_img * 0.08)
+
     # If a turn is detected, check if the corner (y_min) has crossed the trigger line
+    action_y = int(h_img * action_zone_ratio)
     corner_reached = y_min >= action_y
 
-    if shift > shift_threshold:
-        signal = Direction.RIGHT if corner_reached else Direction.STRAIGHT
-    elif shift < -shift_threshold:
-        signal = Direction.LEFT if corner_reached else Direction.STRAIGHT
-    else:
-        signal = Direction.STRAIGHT
+    signal = Direction.STRAIGHT
+    if is_corner and corner_reached:
+        # Which way does the wide top segment extend relative to the bottom stem?
+        if cx_top > cx_bot + (w_img * 0.04):
+            signal = Direction.RIGHT
+        elif cx_top < cx_bot - (w_img * 0.04):
+            signal = Direction.LEFT
 
     return signal, visual_mask, shift
 
