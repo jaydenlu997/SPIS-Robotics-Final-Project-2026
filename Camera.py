@@ -73,7 +73,20 @@ def RunPICamera_intersection(camera, show_preview: bool = ENABLE_VISUAL_PREVIEW)
     img = camera.capture_array()
 
     paths, mask, shift = get_available_paths(img)
-    print(paths)
+
+    if len(paths) > 1:
+        import time
+        if not os.path.exists("debug_image"):
+            os.makedirs("debug_image")
+        
+        # Convert camera array (RGB) to OpenCV format (BGR) for saving
+        img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR) if img.ndim == 3 else img
+        
+        # Stack the original image and the algorithm mask side-by-side
+        combined = np.hstack((img_bgr, mask))
+        filename = f"debug_image/debug_{int(time.time()*100)}.jpg"
+        cv2.imwrite(filename, combined)
+        print(f"Saved debug image to {filename}")
 
     if show_preview:
         try:
