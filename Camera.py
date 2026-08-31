@@ -294,10 +294,15 @@ def get_available_paths(
         _, x_above = np.where(above_slice > 0)
         
         if len(x_above) > 0:
-            width_above = x_above.max() - x_above.min()
-            # A straight path will have a narrow width (similar to the stem)
-            if width_above < (stem_width * 2.5):
-                paths.append(Direction.STRAIGHT)
+            # Check if any of the tape above the crossbar is aligned with the center stem
+            # This prevents the upward-curving tips of the horizontal arms (due to perspective distortion or slanted placement) from being detected as a straight path.
+            overlap = np.any((x_above >= stem_cx - stem_width) & (x_above <= stem_cx + stem_width))
+            
+            if overlap:
+                width_above = x_above.max() - x_above.min()
+                # A straight path will have a narrow width (similar to the stem)
+                if width_above < (stem_width * 2.5):
+                    paths.append(Direction.STRAIGHT)
             
         cv2.line(visual_mask, (0, crossbar_y), (w_img, crossbar_y), (0, 255, 255), 2)
     else:
