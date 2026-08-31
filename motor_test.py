@@ -98,10 +98,16 @@ try:
             time.sleep(0.2)
         elif direction == Direction.RIGHT:
             no_detected_count = 0
+
+            left.stop()
+            right.stop()
             time.sleep(0.5)
             turn_right_visual(camera, left, right, turn_speed=TURN_SPEED)
         elif direction == Direction.LEFT:
             no_detected_count = 0
+
+            left.stop()
+            right.stop()
             time.sleep(0.5)
             turn_left_visual(camera, left, right, turn_speed=TURN_SPEED)
         elif direction == Direction.NO_DETECTED:
