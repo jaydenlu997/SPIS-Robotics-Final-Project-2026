@@ -27,7 +27,7 @@ def turn_right_visual(camera, left_motor, right_motor, turn_speed=TURN_SPEED, mi
     # Phase 2: Require consecutive STRAIGHT frames to confirm alignment on the new line
     straight_confirmations = 0
     while time.time() - start_time < timeout:
-        img, direction = RunPICamera(camera)
+        img, direction, shift = RunPICamera(camera)
         if direction == Direction.STRAIGHT:
             straight_confirmations += 1
             if straight_confirmations >= 2:
@@ -54,7 +54,7 @@ def turn_left_visual(camera, left_motor, right_motor, turn_speed=TURN_SPEED, min
     # Phase 2: Require consecutive STRAIGHT frames to confirm alignment on the new line
     straight_confirmations = 0
     while time.time() - start_time < timeout:
-        img, direction = RunPICamera(camera)
+        img, direction, shift = RunPICamera(camera)
         if direction == Direction.STRAIGHT:
             straight_confirmations += 1
             if straight_confirmations >= 2:
@@ -79,12 +79,21 @@ try:
     NO_DETECTED_THRESHOLD = 4  # Require 4 consecutive missing frames before stopping
 
     while True:
-        img, direction = RunPICamera(camera)
+        img, direction, shift = RunPICamera(camera)
 
         if direction == Direction.STRAIGHT:
             no_detected_count = 0
-            left.move(DRIVE_SPEED)
-            right.move(DRIVE_SPEED)
+            
+            # Proportional controller for micro-adjustments
+            kp = 0.5
+            
+            # Calculate adjusted speeds based on shift
+            # If shift is positive, the line is to the right, so we need to turn right slightly
+            left_speed = max(0.0, min(1.0, DRIVE_SPEED + shift * kp))
+            right_speed = max(0.0, min(1.0, DRIVE_SPEED - shift * kp))
+            
+            left.move(left_speed)
+            right.move(right_speed)
         elif direction == Direction.RIGHT:
             no_detected_count = 0
             time.sleep(0.5)

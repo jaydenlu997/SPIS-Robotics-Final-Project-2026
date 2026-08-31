@@ -45,7 +45,7 @@ def main():
     # Start the camera
     camera.start()
     while (True):
-      img, direction = RunPICamera(camera=camera)
+      img, direction, shift = RunPICamera(camera=camera)
 
       """
       # run vertex recognition every 0.5 sec

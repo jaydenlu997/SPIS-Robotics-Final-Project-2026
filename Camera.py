@@ -50,11 +50,11 @@ def SetupPICamera(show_preview: bool = ENABLE_VISUAL_PREVIEW):
 
     return camera
 
-def RunPICamera(camera, show_preview: bool = ENABLE_VISUAL_PREVIEW) -> tuple[np.ndarray, Direction]:
+def RunPICamera(camera, show_preview: bool = ENABLE_VISUAL_PREVIEW) -> tuple[np.ndarray, Direction, float]:
     # Grab a frame
     img = camera.capture_array()
 
-    direction, mask = get_turn_signal(img)
+    direction, mask, shift = get_turn_signal(img)
     print(direction)
 
     if show_preview:
@@ -65,7 +65,7 @@ def RunPICamera(camera, show_preview: bool = ENABLE_VISUAL_PREVIEW) -> tuple[np.
         except Exception:
             pass
 
-    return img, direction
+    return img, direction, shift
 
 
 def EndPICamera(camera, show_preview: bool = ENABLE_VISUAL_PREVIEW):
@@ -115,7 +115,7 @@ def get_turn_signal(
     # 3. Extract largest blue contour
     contours, _ = cv2.findContours(tape_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
-        return Direction.NO_DETECTED, visual_mask
+        return Direction.NO_DETECTED, visual_mask, 0.0
 
     largest_contour = max(contours, key=cv2.contourArea)
     tape_binary = np.zeros_like(tape_mask)
@@ -140,7 +140,7 @@ def get_turn_signal(
     _, x_bot = np.where(bot_slice > 0)
 
     if len(x_top) == 0 or len(x_bot) == 0:
-        return Direction.STRAIGHT, visual_mask
+        return Direction.STRAIGHT, visual_mask, 0.0
 
     cx_top = int(np.mean(x_top))
     cx_bot = int(np.mean(x_bot))
@@ -161,7 +161,7 @@ def get_turn_signal(
     else:
         signal = Direction.STRAIGHT
 
-    return signal, visual_mask
+    return signal, visual_mask, shift
 
 
 """
