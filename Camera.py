@@ -211,50 +211,45 @@ def get_available_paths(
     action_zone_ratio: float = 0.35,
 ) -> tuple[list[Direction], np.ndarray, float]:
     """
-    Evaluates blue painter's tape for complex intersections (3-way, 4-way, etc.).
+    Evaluates blue painter's tape for complex intersections (3-way, 4-way, corners).
+    Uses Grid Zone Probing to sample regions around the intersection center.
     Returns a list of all available paths, a visual mask, and the shift for line-following.
     """
     h_img, w_img = image.shape[:2]
     visual_mask = np.zeros((h_img, w_img, 3), dtype=np.uint8)
-    action_y = int(h_img * action_zone_ratio)
-    cv2.line(visual_mask, (0, action_y), (w_img, action_y), (255, 255, 0), 1)
-
+    
+    # 1. Isolate Blue Tape
     if image.ndim == 3 and image.shape[2] == 4:
         image = image[:, :, :3]
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV) if image.ndim == 3 else image
     tape_mask = cv2.inRange(hsv, lower_blue, upper_blue)
 
+    # 2. Extract largest contour
     contours, _ = cv2.findContours(tape_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
         return [Direction.NO_DETECTED], visual_mask, 0.0
 
     largest_contour = max(contours, key=cv2.contourArea)
-    
+    if cv2.contourArea(largest_contour) < 500:
+        return [Direction.NO_DETECTED], visual_mask, 0.0
 
     tape_binary = np.zeros_like(tape_mask)
     cv2.drawContours(tape_binary, [largest_contour], -1, 255, thickness=cv2.FILLED)
     visual_mask[tape_binary > 0] = [255, 120, 0]
 
+    # 3. Calculate basic shift (center of mass)
     M = cv2.moments(largest_contour)
     if M["m00"] != 0:
         cx = int(M["m10"] / M["m00"])
         cy = int(M["m01"] / M["m00"])
     else:
         cx, cy = w_img // 2, h_img // 2
-    
     shift = (cx - (w_img / 2)) / (w_img / 2)
     cv2.circle(visual_mask, (cx, cy), 8, (255, 0, 255), -1)
 
-    # 1. Use horizontal projection to find the crossbar of the intersection
-    row_widths = np.sum(tape_binary > 0, axis=1)
-    max_width = row_widths.max()
-    crossbar_y = int(np.argmax(row_widths))
-
-    # 2. Find the bottom stem (entry path) to establish the center X
+    # 4. Find stem (entry point at the bottom)
     y_pts, x_pts = np.where(tape_binary > 0)
     y_max = y_pts.max()
-    y_min = y_pts.min()
-    
     bot_slice = tape_binary[max(0, y_max - 20) : y_max + 1, :]
     _, x_bot = np.where(bot_slice > 0)
     if len(x_bot) > 0:
@@ -262,57 +257,67 @@ def get_available_paths(
         stem_width = x_bot.max() - x_bot.min()
     else:
         stem_cx = cx
-        stem_width = 30
+        stem_width = 40
+        
+    # Prevent stem_width from being extremely small or large to keep probe boxes sane
+    stem_width = max(20, min(stem_width, w_img // 4))
 
+    # 5. Find the junction Y-level
+    row_widths = np.sum(tape_binary > 0, axis=1)
+    junction_y = int(np.argmax(row_widths))
+    
+    # 6. Grid-based Zone Probing
     paths = []
+    box_size = int(stem_width * 1.5)
     
-    # 3. Determine if a crossbar exists (indicating a turn/intersection)
-    has_crossbar = max_width > (stem_width * 1.3) and max_width > (w_img * 0.08)
-    
-    # We only parse the intersection if the crossbar has reached the action_y trigger line.
-    if has_crossbar and crossbar_y >= action_y:
-        # Analyze the crossbar's horizontal extents
-        crossbar_slice = tape_binary[max(0, crossbar_y - 10) : min(h_img, crossbar_y + 10), :]
-        _, x_cross = np.where(crossbar_slice > 0)
+    def check_zone(center_x, center_y, color):
+        x1 = max(0, center_x - box_size // 2)
+        x2 = min(w_img, center_x + box_size // 2)
+        y1 = max(0, center_y - box_size // 2)
+        y2 = min(h_img, center_y + box_size // 2)
         
-        if len(x_cross) > 0:
-            left_extent = x_cross.min()
-            right_extent = x_cross.max()
-            
-            # LEFT path: crossbar extends left of the stem
-            if stem_cx - left_extent > (stem_width * 1.25) and stem_cx - left_extent > (w_img * 0.05):
-                paths.append(Direction.LEFT)
-                
-            # RIGHT path: crossbar extends right of the stem
-            if right_extent - stem_cx > (stem_width * 1.25) and right_extent - stem_cx > (w_img * 0.05):
-                paths.append(Direction.RIGHT)
-                
-        # STRAIGHT path: check if there is a vertical stem above the crossbar
-        # Look 15% of the image height above the crossbar
-        check_y = max(0, crossbar_y - int(h_img * 0.15))
-        above_slice = tape_binary[max(0, check_y - 5) : check_y + 5, :]
-        _, x_above = np.where(above_slice > 0)
+        cv2.rectangle(visual_mask, (x1, y1), (x2, y2), color, 2)
         
-        if len(x_above) > 0:
-            # Check if any of the tape above the crossbar is aligned with the center stem
-            # This prevents the upward-curving tips of the horizontal arms (due to perspective distortion or slanted placement) from being detected as a straight path.
-            overlap = np.any((x_above >= stem_cx - stem_width) & (x_above <= stem_cx + stem_width))
+        if x1 >= x2 or y1 >= y2:
+            return False
             
-            if overlap:
-                width_above = x_above.max() - x_above.min()
-                # A straight path will have a narrow width (similar to the stem)
-                if width_above < (stem_width * 2.5):
-                    paths.append(Direction.STRAIGHT)
-            
-        cv2.line(visual_mask, (0, crossbar_y), (w_img, crossbar_y), (0, 255, 255), 2)
-    else:
-        # No intersection detected, or it hasn't reached the action line yet
-        paths.append(Direction.STRAIGHT)
+        zone = tape_binary[y1:y2, x1:x2]
+        blue_pixels = np.sum(zone > 0)
+        total_pixels = (x2 - x1) * (y2 - y1)
+        
+        # If the zone is at least 15% blue tape, the path exists
+        return (blue_pixels / total_pixels) > 0.15
 
-    # Fallback
+    max_width = row_widths.max()
+    has_crossbar = max_width > (stem_width * 1.5)
+    action_y = int(h_img * action_zone_ratio)
+    
+    cv2.line(visual_mask, (0, action_y), (w_img, action_y), (255, 255, 0), 1)
+    
+    if has_crossbar and junction_y >= action_y:
+        # Probe LEFT (Green box)
+        left_px = stem_cx - int(stem_width * 1.5)
+        if check_zone(left_px, junction_y, (0, 255, 0)):
+            paths.append(Direction.LEFT)
+            
+        # Probe RIGHT (Red box)
+        right_px = stem_cx + int(stem_width * 1.5)
+        if check_zone(right_px, junction_y, (0, 0, 255)):
+            paths.append(Direction.RIGHT)
+            
+        # Probe STRAIGHT (Cyan box)
+        top_py = junction_y - int(stem_width * 1.5)
+        if check_zone(stem_cx, top_py, (255, 255, 0)):
+            paths.append(Direction.STRAIGHT)
+            
+        cv2.line(visual_mask, (0, junction_y), (w_img, junction_y), (255, 255, 255), 1)
+    else:
+        # No intersection detected, just follow the line
+        paths.append(Direction.STRAIGHT)
+        
     if not paths:
         paths.append(Direction.STRAIGHT)
-
+        
     return paths, visual_mask, shift
 
 
