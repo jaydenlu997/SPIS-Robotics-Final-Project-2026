@@ -68,6 +68,24 @@ def RunPICamera(camera, show_preview: bool = ENABLE_VISUAL_PREVIEW) -> tuple[np.
     return img, direction, shift
 
 
+def RunPICamera_intersection(camera, show_preview: bool = ENABLE_VISUAL_PREVIEW) -> tuple[np.ndarray, list[Direction], float]:
+    # Grab a frame
+    img = camera.capture_array()
+
+    paths, mask, shift = get_available_paths(img)
+    print(paths)
+
+    if show_preview:
+        try:
+            cv2.imshow("Camera", img)
+            cv2.imshow("Modified frame", mask)
+            cv2.waitKey(1)
+        except Exception:
+            pass
+
+    return img, paths, shift
+
+
 def EndPICamera(camera, show_preview: bool = ENABLE_VISUAL_PREVIEW):
     # Clean up the resources
     print("Stopping the camera ...")
@@ -184,6 +202,104 @@ def get_turn_signal(
             signal = Direction.LEFT
 
     return signal, visual_mask, shift
+
+
+def get_available_paths(
+    image: np.ndarray,
+    lower_blue: np.ndarray = np.array([95, 80, 50]),
+    upper_blue: np.ndarray = np.array([135, 255, 255]),
+    action_zone_ratio: float = 0.35,
+) -> tuple[list[Direction], np.ndarray, float]:
+    """
+    Evaluates blue painter's tape for complex intersections (3-way, 4-way, etc.).
+    Returns a list of all available paths, a visual mask, and the shift for line-following.
+    """
+    h_img, w_img = image.shape[:2]
+    visual_mask = np.zeros((h_img, w_img, 3), dtype=np.uint8)
+    action_y = int(h_img * action_zone_ratio)
+    cv2.line(visual_mask, (0, action_y), (w_img, action_y), (255, 255, 0), 1)
+
+    if image.ndim == 3 and image.shape[2] == 4:
+        image = image[:, :, :3]
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV) if image.ndim == 3 else image
+    tape_mask = cv2.inRange(hsv, lower_blue, upper_blue)
+
+    contours, _ = cv2.findContours(tape_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return [Direction.NO_DETECTED], visual_mask, 0.0
+
+    largest_contour = max(contours, key=cv2.contourArea)
+    tape_binary = np.zeros_like(tape_mask)
+    cv2.drawContours(tape_binary, [largest_contour], -1, 255, thickness=cv2.FILLED)
+    visual_mask[tape_binary > 0] = [255, 120, 0]
+
+    M = cv2.moments(largest_contour)
+    if M["m00"] != 0:
+        cx = int(M["m10"] / M["m00"])
+        cy = int(M["m01"] / M["m00"])
+    else:
+        cx, cy = w_img // 2, h_img // 2
+    
+    shift = (cx - (w_img / 2)) / (w_img / 2)
+    cv2.circle(visual_mask, (cx, cy), 8, (255, 0, 255), -1)
+
+    # 1. Use horizontal projection to find the crossbar of the intersection
+    row_widths = np.sum(tape_binary > 0, axis=1)
+    max_width = row_widths.max()
+    crossbar_y = int(np.argmax(row_widths))
+
+    # 2. Find the bottom stem (entry path) to establish the center X
+    y_pts, x_pts = np.where(tape_binary > 0)
+    y_max = y_pts.max()
+    y_min = y_pts.min()
+    
+    bot_slice = tape_binary[max(0, y_max - 20) : y_max + 1, :]
+    _, x_bot = np.where(bot_slice > 0)
+    if len(x_bot) > 0:
+        stem_cx = int(np.mean(x_bot))
+        stem_width = x_bot.max() - x_bot.min()
+    else:
+        stem_cx = cx
+        stem_width = 30
+
+    paths = []
+    
+    # 3. Determine if a crossbar exists (indicating a turn/intersection)
+    has_crossbar = max_width > (stem_width * 1.3) and max_width > (w_img * 0.08)
+    
+    # We only parse the intersection if the crossbar has reached the action_y trigger line.
+    if has_crossbar and crossbar_y >= action_y:
+        # Analyze the crossbar's horizontal extents
+        crossbar_slice = tape_binary[max(0, crossbar_y - 10) : min(h_img, crossbar_y + 10), :]
+        _, x_cross = np.where(crossbar_slice > 0)
+        
+        if len(x_cross) > 0:
+            left_extent = x_cross.min()
+            right_extent = x_cross.max()
+            
+            # LEFT path: does the crossbar extend significantly left of the stem?
+            if stem_cx - left_extent > (stem_width * 0.8) and stem_cx - left_extent > (w_img * 0.04):
+                paths.append(Direction.LEFT)
+                
+            # RIGHT path: does the crossbar extend significantly right of the stem?
+            if right_extent - stem_cx > (stem_width * 0.8) and right_extent - stem_cx > (w_img * 0.04):
+                paths.append(Direction.RIGHT)
+                
+        # STRAIGHT path: does the tape continue significantly above the crossbar?
+        # A normal crossbar thickness is maybe 40-50 pixels. If it extends > 10% of image above the crossbar center, it's a path.
+        if crossbar_y - y_min > (h_img * 0.1): 
+            paths.append(Direction.STRAIGHT)
+            
+        cv2.line(visual_mask, (0, crossbar_y), (w_img, crossbar_y), (0, 255, 255), 2)
+    else:
+        # No intersection detected, or it hasn't reached the action line yet
+        paths.append(Direction.STRAIGHT)
+
+    # Fallback
+    if not paths:
+        paths.append(Direction.STRAIGHT)
+
+    return paths, visual_mask, shift
 
 
 """
