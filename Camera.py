@@ -285,10 +285,17 @@ def get_available_paths(
             if right_extent - stem_cx > (stem_width * 1.5) and right_extent > (w_img * 0.85):
                 paths.append(Direction.RIGHT)
                 
-        # STRAIGHT path: does the tape continue significantly above the crossbar?
-        # A 90-degree corner's horizontal arm has thickness, so we require it to extend > 20% of the image height above the crossbar center.
-        if crossbar_y - y_min > (h_img * 0.2): 
-            paths.append(Direction.STRAIGHT)
+        # STRAIGHT path: check if there is a vertical stem above the crossbar
+        # Look 15% of the image height above the crossbar
+        check_y = max(0, crossbar_y - int(h_img * 0.15))
+        above_slice = tape_binary[max(0, check_y - 5) : check_y + 5, :]
+        _, x_above = np.where(above_slice > 0)
+        
+        if len(x_above) > 0:
+            width_above = x_above.max() - x_above.min()
+            # A straight path will have a narrow width (similar to the stem)
+            if width_above < (stem_width * 2.5):
+                paths.append(Direction.STRAIGHT)
             
         cv2.line(visual_mask, (0, crossbar_y), (w_img, crossbar_y), (0, 255, 255), 2)
     else:
