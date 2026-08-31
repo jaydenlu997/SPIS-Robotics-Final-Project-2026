@@ -109,7 +109,11 @@ try:
                 right.stop()
                 print("no line detected")
 
-        time.sleep(0.04)  # ~20-25 Hz camera polling rate to reduce CPU load and bus spam
+        left.stop()
+        right.stop()
+        time.sleep(0.2)  # ~20-25 Hz camera polling rate to reduce CPU load and bus spam
+
+
 
 
 except KeyboardInterrupt:
