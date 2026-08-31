@@ -281,13 +281,10 @@ def get_available_paths(
     
     # 6. Grid-based Zone Probing
     paths = []
-    box_size = int(stem_width * 1.5)
     
-    def check_zone(center_x, center_y, color):
-        x1 = max(0, center_x - box_size // 2)
-        x2 = min(w_img, center_x + box_size // 2)
-        y1 = max(0, center_y - box_size // 2)
-        y2 = min(h_img, center_y + box_size // 2)
+    def check_zone(x1, y1, x2, y2, color, threshold=0.15):
+        x1, x2 = max(0, int(x1)), min(w_img, int(x2))
+        y1, y2 = max(0, int(y1)), min(h_img, int(y2))
         
         cv2.rectangle(visual_mask, (x1, y1), (x2, y2), color, 2)
         
@@ -298,8 +295,7 @@ def get_available_paths(
         blue_pixels = np.sum(zone > 0)
         total_pixels = (x2 - x1) * (y2 - y1)
         
-        # If the zone is at least 15% blue tape, the path exists
-        return (blue_pixels / total_pixels) > 0.15
+        return (blue_pixels / total_pixels) > threshold
 
     max_width = row_widths.max()
     has_crossbar = max_width > (stem_width * 1.5)
@@ -309,18 +305,28 @@ def get_available_paths(
     
     if has_crossbar and junction_y >= action_y:
         # Probe LEFT (Green box)
-        left_px = stem_cx - int(stem_width * 1.5)
-        if check_zone(left_px, junction_y, (0, 255, 0)):
+        # Maintained original gap from the stem
+        x2_left = stem_cx - int(stem_width * 0.75)
+        x1_left = x2_left - int(stem_width * 1.5)
+        y1_lr = junction_y - int(stem_width * 0.75)
+        y2_lr = junction_y + int(stem_width * 0.75)
+        if check_zone(x1_left, y1_lr, x2_left, y2_lr, (0, 255, 0)):
             paths.append(Direction.LEFT)
             
         # Probe RIGHT (Red box)
-        right_px = stem_cx + int(stem_width * 1.5)
-        if check_zone(right_px, junction_y, (0, 0, 255)):
+        # Maintained original gap from the stem
+        x1_right = stem_cx + int(stem_width * 0.75)
+        x2_right = x1_right + int(stem_width * 1.5)
+        if check_zone(x1_right, y1_lr, x2_right, y2_lr, (0, 0, 255)):
             paths.append(Direction.RIGHT)
             
         # Probe STRAIGHT (Cyan box)
-        top_py = junction_y - int(stem_width * 1.5)
-        if check_zone(stem_cx, top_py, (255, 255, 0)):
+        # Pushed slightly higher to avoid jagged tape tears on the top edge of the horizontal arm
+        x1_top = stem_cx - int(stem_width * 0.75)
+        x2_top = stem_cx + int(stem_width * 0.75)
+        y2_top = junction_y - int(stem_width * 0.9)
+        y1_top = y2_top - int(stem_width * 1.5)
+        if check_zone(x1_top, y1_top, x2_top, y2_top, (255, 255, 0)):
             paths.append(Direction.STRAIGHT)
             
         cv2.line(visual_mask, (0, junction_y), (w_img, junction_y), (255, 255, 255), 1)
