@@ -229,6 +229,11 @@ def get_available_paths(
         return [Direction.NO_DETECTED], visual_mask, 0.0
 
     largest_contour = max(contours, key=cv2.contourArea)
+    
+    # Filter out tiny specks of noise (e.g., blue lint on the carpet)
+    if cv2.contourArea(largest_contour) < 500:
+        return [Direction.NO_DETECTED], visual_mask, 0.0
+
     tape_binary = np.zeros_like(tape_mask)
     cv2.drawContours(tape_binary, [largest_contour], -1, 255, thickness=cv2.FILLED)
     visual_mask[tape_binary > 0] = [255, 120, 0]
