@@ -17,6 +17,12 @@ STRAIGHT_KP = 1.3        # Proportional gain for straight driving micro-adjustme
 
 def turn_right_visual(camera, left_motor, right_motor, turn_speed=TURN_SPEED, min_turn_time=MIN_TURN_DURATION, timeout=4.0):
     print(f"Starting in-place turn right (power {turn_speed}, min_time {min_turn_time}s)...")
+    
+    # Kickstart burst to overcome static friction
+    left_motor.move(1.0)
+    right_motor.move(-1.0)
+    time.sleep(0.05)
+    
     left_motor.move(turn_speed)
     right_motor.move(-turn_speed)
     
@@ -44,6 +50,12 @@ def turn_right_visual(camera, left_motor, right_motor, turn_speed=TURN_SPEED, mi
 
 def turn_left_visual(camera, left_motor, right_motor, turn_speed=TURN_SPEED, min_turn_time=MIN_TURN_DURATION, timeout=4.0):
     print(f"Starting in-place turn left (power {turn_speed}, min_time {min_turn_time}s)...")
+    
+    # Kickstart burst to overcome static friction
+    left_motor.move(-1.0)
+    right_motor.move(1.0)
+    time.sleep(0.05)
+    
     left_motor.move(-turn_speed)
     right_motor.move(turn_speed)
 
@@ -78,12 +90,20 @@ try:
 
     no_detected_count = 0
     NO_DETECTED_THRESHOLD = 4  # Require 4 consecutive missing frames before stopping
+    is_moving = False
 
     while True:
         img, direction, shift = RunPICamera(camera)
 
         if direction == Direction.STRAIGHT:
             no_detected_count = 0
+            
+            if not is_moving:
+                # Kickstart burst to overcome static friction when starting from a stop
+                left.move(1.0)
+                right.move(1.0)
+                time.sleep(0.05)
+                is_moving = True
             
             # Calculate adjusted speeds based on shift
             # Instead of speeding up the outer wheel (which causes surging),
@@ -102,6 +122,7 @@ try:
             right.move(right_speed)
         elif direction == Direction.RIGHT:
             no_detected_count = 0
+            is_moving = False
 
             left.stop()
             right.stop()
@@ -109,6 +130,7 @@ try:
             turn_right_visual(camera, left, right, turn_speed=TURN_SPEED)
         elif direction == Direction.LEFT:
             no_detected_count = 0
+            is_moving = False
 
             left.stop()
             right.stop()
@@ -117,6 +139,7 @@ try:
         elif direction == Direction.NO_DETECTED:
             no_detected_count += 1
             if no_detected_count >= NO_DETECTED_THRESHOLD:
+                is_moving = False
                 left.stop()
                 right.stop()
                 print("no line detected")
