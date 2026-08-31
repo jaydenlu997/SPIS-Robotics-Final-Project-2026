@@ -85,7 +85,7 @@ try:
             no_detected_count = 0
             
             # Proportional controller for micro-adjustments
-            kp = 0.5
+            kp = 1.3
             
             # Calculate adjusted speeds based on shift
             # If shift is positive, the line is to the right, so we need to turn right slightly
@@ -94,6 +94,8 @@ try:
             
             left.move(left_speed)
             right.move(right_speed)
+
+            time.sleep(0.2)
         elif direction == Direction.RIGHT:
             no_detected_count = 0
             time.sleep(0.5)
@@ -109,10 +111,8 @@ try:
                 right.stop()
                 print("no line detected")
         
-        time.sleep(0.5)
-        left.stop()
-        right.stop()
-        time.sleep(0.2)  # ~20-25 Hz camera polling rate to reduce CPU load and bus spam
+
+        time.sleep(0.04)  # ~20-25 Hz camera polling rate to reduce CPU load and bus spam
 
 
 
