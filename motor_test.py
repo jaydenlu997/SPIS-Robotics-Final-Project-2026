@@ -3,7 +3,7 @@ from Motor import DCMotor
 from Camera import SetupPICamera, RunPICamera, EndPICamera
 from Direction import Direction
 
-left = DCMotor(in1=25, in2=18, pwm=23)
+left = DCMotor(in1=18, in2=25, pwm=23)
 right = DCMotor(in1=12, in2=16, pwm=24)
 
 camera = SetupPICamera()
