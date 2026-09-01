@@ -260,35 +260,24 @@ def get_available_paths(
     shift = (cx - (w_img / 2)) / (w_img / 2)
     cv2.circle(visual_mask, (cx, cy), 8, (255, 0, 255), -1)
 
-    # 4. Find stem width robustly using percentiles to ignore cut-off tape
-    row_widths = np.sum(tape_binary > 0, axis=1)
-    valid_rows = row_widths[row_widths > 0]
-    
-    if len(valid_rows) > 0:
-        # The 15th percentile represents the true width of the vertical stem,
-        # completely ignoring thick crossbars and artificially small cut-off edges.
-        stem_width = int(np.percentile(valid_rows, 15))
-        max_width = int(np.max(valid_rows))
+    # 4. Find stem (entry point at the bottom)
+    y_pts, x_pts = np.where(tape_binary > 0)
+    y_max = y_pts.max()
+    bot_slice = tape_binary[max(0, y_max - 20) : y_max + 1, :]
+    _, x_bot = np.where(bot_slice > 0)
+    if len(x_bot) > 0:
+        stem_cx = int(np.mean(x_bot))
+        stem_width = x_bot.max() - x_bot.min()
     else:
+        stem_cx = cx
         stem_width = 40
-        max_width = 0
         
+    # Prevent stem_width from being extremely small or large to keep probe boxes sane
     stem_width = max(20, min(stem_width, w_img // 4))
 
     # 5. Find the junction Y-level
+    row_widths = np.sum(tape_binary > 0, axis=1)
     junction_y = int(np.argmax(row_widths))
-    
-    # 6. Find localized junction center (X) just below the crossbar
-    # This correctly anchors the probes even if the robot approaches diagonally
-    probe_y = min(h_img - 1, junction_y + int(stem_width * 1.2))
-    stem_slice = tape_binary[probe_y, :]
-    x_stem = np.where(stem_slice > 0)[0]
-    
-    if len(x_stem) > 0:
-        junction_cx = int(np.mean(x_stem))
-    else:
-        # Fallback to overall centroid
-        junction_cx = cx
     
     # 6. Grid-based Zone Probing
     paths = []
@@ -317,7 +306,7 @@ def get_available_paths(
     if has_crossbar and junction_y >= action_y:
         # Probe LEFT (Green box)
         # Maintained original gap from the stem
-        x2_left = junction_cx - int(stem_width * 0.75)
+        x2_left = stem_cx - int(stem_width * 0.75)
         x1_left = x2_left - int(stem_width * 1.5)
         y1_lr = junction_y - int(stem_width * 0.75)
         y2_lr = junction_y + int(stem_width * 0.75)
@@ -326,15 +315,15 @@ def get_available_paths(
             
         # Probe RIGHT (Red box)
         # Maintained original gap from the stem
-        x1_right = junction_cx + int(stem_width * 0.75)
+        x1_right = stem_cx + int(stem_width * 0.75)
         x2_right = x1_right + int(stem_width * 1.5)
         if check_zone(x1_right, y1_lr, x2_right, y2_lr, (0, 0, 255)):
             paths.append(Direction.RIGHT)
             
         # Probe STRAIGHT (Cyan box)
         # Pushed slightly higher to avoid jagged tape tears on the top edge of the horizontal arm
-        x1_top = junction_cx - int(stem_width * 0.75)
-        x2_top = junction_cx + int(stem_width * 0.75)
+        x1_top = stem_cx - int(stem_width * 0.75)
+        x2_top = stem_cx + int(stem_width * 0.75)
         y2_top = junction_y - int(stem_width * 0.9)
         y1_top = y2_top - int(stem_width * 1.5)
         if check_zone(x1_top, y1_top, x2_top, y2_top, (255, 255, 0)):
