@@ -11,12 +11,11 @@ camera = SetupPICamera()
 
 # Tunable parameters
 DRIVE_SPEED = 0.8       # Forward straight speed (0.0 to 1.0)
-TURN_SPEED = 1.0         # Turning power (0.0 to 1.0)
-MIN_TURN_DURATION = 0.70  # Minimum time (seconds) to rotate before checking alignment
+TURN_SPEED = 0.5       # Turning power (0.0 to 1.0)
+MIN_TURN_DURATION = 1.50  # Minimum time (seconds) to rotate before checking alignment
 NO_DETECTED_THRESHOLD = 4 # Consecutive frames without tape before stopping
 STRAIGHT_KP = 1.3        # Proportional gain for straight driving micro-adjustments
 TURN_FORWARD_DELAY = 0.3 # Time (seconds) to drive forward to align wheelbase before pivoting
-
 def turn_right_visual(camera, left_motor, right_motor, turn_speed=TURN_SPEED, min_turn_time=MIN_TURN_DURATION, timeout=4.0):
     print(f"Starting in-place turn right (power {turn_speed}, min_time {min_turn_time}s)...")
     
