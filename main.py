@@ -71,6 +71,36 @@ def turn_left_visual(camera, left_motor, right_motor, turn_speed=TURN_SPEED, min
     left_motor.stop()
     right_motor.stop()
 
+def turn_180_visual(camera, left_motor, right_motor, turn_speed=TURN_SPEED, min_turn_time=MIN_TURN_DURATION * 1.8, timeout=4.0):
+    print(f"Starting in-place U-Turn (power {turn_speed}, min_time {min_turn_time}s)...")
+    
+    # Kickstart burst to overcome static friction
+    left_motor.move(1.0)
+    right_motor.move(-1.0)
+    time.sleep(0.05)
+    
+    left_motor.move(turn_speed)
+    right_motor.move(-turn_speed)
+    
+    time.sleep(min_turn_time)
+    
+    start_time = time.time()
+    straight_confirmations = 0
+    while time.time() - start_time < timeout:
+        img, paths, shift = RunPICamera_intersection(camera)
+        if Direction.STRAIGHT in paths:
+            straight_confirmations += 1
+            if straight_confirmations >= 2:
+                print("Confirmed straight path alignment after U-Turn!")
+                break
+        else:
+            straight_confirmations = 0
+        time.sleep(0.04)
+            
+    left_motor.stop()
+    right_motor.stop()
+
+from MazeMapper import MazeMapper
 
 def main():
     camera = SetupPICamera()
@@ -87,17 +117,9 @@ def main():
         pwm=24,
     )
     
-    lastTime = time.time()
-    lastTurnTime = time.time()
+    mapper = MazeMapper(distance_threshold=2.0)
     
-    # time to roughly keep track of our position
-    startCoordTime = time.time()
-    xCoord = 0
-    yCoord = 0
-    
-    vertexCtr = 0
-    seenVertices = []
-    graphMap = [0]
+    last_loop_time = time.time()
     
     try:
         print("Starting the camera ...")
@@ -109,24 +131,11 @@ def main():
         is_moving = False
 
         while True:
+            current_time = time.time()
+            dt = current_time - last_loop_time
+            last_loop_time = current_time
+            
             img, paths, shift = RunPICamera_intersection(camera)
-
-            """
-            # run vertex recognition every 0.5 sec
-            currentTime = time.time()
-            if currentTime - lastTime > 0.5:
-                if Direction.RIGHT in paths or Direction.LEFT in paths:
-                    seenVertex = False
-                    for vertex in seenVertices:
-                        if match_places_orb(vertex, img):
-                            print("found visited vertex")
-                            seenVertex = True
-                            break
-                    if not seenVertex:
-                        seenVertices.append(img)
-                        vertexCtr += 1
-                lastTime = currentTime
-            """
 
             if len(paths) == 1:
                 direction = paths[0]
@@ -139,6 +148,9 @@ def main():
                         right.move(1.0)
                         time.sleep(0.05)
                         is_moving = True
+                    
+                    # Update Odometry when driving straight
+                    mapper.update_odometry(dt)
                     
                     # Calculate adjusted speeds based on shift
                     left_speed = DRIVE_SPEED
@@ -156,7 +168,8 @@ def main():
                 elif direction == Direction.RIGHT:
                     no_detected_count = 0
                     
-                    # Drive forward slightly to align the wheels with the corner
+                    # Corner found while not formally in an intersection? 
+                    # Treat it as a forced right turn (e.g. L-corner)
                     left.move(DRIVE_SPEED)
                     right.move(DRIVE_SPEED)
                     time.sleep(TURN_FORWARD_DELAY)
@@ -166,10 +179,12 @@ def main():
                     right.stop()
                     time.sleep(0.5)
                     turn_right_visual(camera, left, right, turn_speed=TURN_SPEED)
+                    # Update mapper heading blindly since it's a forced turn
+                    mapper.heading.turn(Direction.RIGHT)
+                    
                 elif direction == Direction.LEFT:
                     no_detected_count = 0
                     
-                    # Drive forward slightly to align the wheels with the corner
                     left.move(DRIVE_SPEED)
                     right.move(DRIVE_SPEED)
                     time.sleep(TURN_FORWARD_DELAY)
@@ -179,6 +194,9 @@ def main():
                     right.stop()
                     time.sleep(0.5)
                     turn_left_visual(camera, left, right, turn_speed=TURN_SPEED)
+                    # Update mapper heading blindly since it's a forced turn
+                    mapper.heading.turn(Direction.LEFT)
+                    
                 elif direction == Direction.NO_DETECTED:
                     no_detected_count += 1
                     if no_detected_count >= NO_DETECTED_THRESHOLD:
@@ -186,14 +204,15 @@ def main():
                         left.stop()
                         right.stop()
                         print("no line detected")
+                        
+                        action = mapper.register_dead_end()
+                        if action == "U_TURN":
+                            turn_180_visual(camera, left, right, turn_speed=TURN_SPEED)
+                            
             elif len(paths) > 1:
                 # INTERSECTION DETECTED (3-way or 4-way)
                 no_detected_count = 0
                 
-                chosen_direction = random.choice(paths)
-                print(f"INTERSECTION DETECTED! Available paths: {[p.name for p in paths]}")
-                print(f"Randomly chose to go: {chosen_direction.name}")
-
                 # Drive forward slightly to align the wheels with the center of the intersection
                 left.move(DRIVE_SPEED)
                 right.move(DRIVE_SPEED)
@@ -204,13 +223,21 @@ def main():
                 right.stop()
                 time.sleep(0.5)
 
+                # Ask the mapper what to do!
+                chosen_direction = mapper.process_intersection(img, paths, match_places_orb)
+                
                 if chosen_direction == Direction.LEFT:
                     turn_left_visual(camera, left, right, turn_speed=TURN_SPEED)
                 elif chosen_direction == Direction.RIGHT:
                     turn_right_visual(camera, left, right, turn_speed=TURN_SPEED)
+                elif chosen_direction == "U_TURN":
+                    turn_180_visual(camera, left, right, turn_speed=TURN_SPEED)
                 elif chosen_direction == Direction.STRAIGHT:
                     pass
 
+            # Since the loop takes time (including turns), we reset last_loop_time here
+            # so we only measure the dt of the sleep and camera processing.
+            last_loop_time = time.time()
             time.sleep(0.04)
     
     except KeyboardInterrupt:
