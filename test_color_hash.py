@@ -4,27 +4,45 @@ import time
 from picamera2 import Picamera2
 from libcamera import Transform
 
-def get_color_hash(image):
+import os
+
+def get_color_hash(image, save_debug=True):
     """
     Analyzes an image and returns a dictionary with the pixel count of specific colors.
     """
     # Assuming image is grabbed in BGR format
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     
-    # Define HSV boundaries for the target colors.
+    # Define HSV boundaries for the target colors and their BGR drawing colors
     # Note: You may need to tune these Hue/Sat/Val numbers slightly depending on your room lighting!
     color_bounds = {
-        "green":  (np.array([40, 60, 60]),  np.array([85, 255, 255])),
-        "yellow": (np.array([20, 100, 100]), np.array([35, 255, 255])),
-        "orange": (np.array([5, 120, 120]),  np.array([18, 255, 255])),
-        "pink":   (np.array([140, 70, 70]),  np.array([170, 255, 255]))
+        "green":  (np.array([40, 60, 60]),  np.array([85, 255, 255]), (0, 255, 0)),
+        "yellow": (np.array([20, 100, 100]), np.array([35, 255, 255]), (0, 255, 255)),
+        "orange": (np.array([5, 120, 120]),  np.array([18, 255, 255]), (0, 165, 255)),
+        "pink":   (np.array([140, 70, 70]),  np.array([170, 255, 255]), (255, 105, 180))
     }
     
     hash_result = {}
-    for color_name, (lower, upper) in color_bounds.items():
+    if save_debug:
+        debug_canvas = np.zeros_like(image)
+        
+    for color_name, (lower, upper, bgr_color) in color_bounds.items():
         mask = cv2.inRange(hsv, lower, upper)
         pixel_count = cv2.countNonZero(mask)
         hash_result[color_name] = pixel_count
+        
+        if save_debug:
+            debug_canvas[mask > 0] = bgr_color
+            
+    if save_debug:
+        os.makedirs("debug_image", exist_ok=True)
+        # Convert raw RGB to BGR for saving, just in case
+        img_bgr = cv2.cvtColor(image, cv2.COLOR_RGB2BGR) if image.ndim == 3 else image
+        composite = np.hstack((img_bgr, debug_canvas))
+        timestamp = int(time.time() * 1000)
+        filename = f"debug_image/color_hash_{timestamp}.jpg"
+        cv2.imwrite(filename, composite)
+        print(f"[DEBUG] Wrote visual mask to {filename}")
         
     return hash_result
 
@@ -59,8 +77,20 @@ def compare_hashes(hash1, hash2, margin=0.40, min_pixels=200):
 
 if __name__ == "__main__":
     camera = Picamera2()
+    
+    # Find sensor mode with the largest area to maximize optical Field-of-View
+    sensor_config = {}
+    try:
+        modes = camera.sensor_modes
+        if modes:
+            best_mode = max(modes, key=lambda m: m.get("size", (0, 0))[0] * m.get("size", (0, 0))[1])
+            sensor_config = {"output_size": best_mode["size"]}
+    except Exception:
+        pass
+        
     config = camera.create_video_configuration(
         main={"size": (640, 480), "format": "RGB888"},
+        sensor=sensor_config if sensor_config else None,
         controls={"FrameRate": 30},
         transform=Transform(hflip=False, vflip=False)
     )
