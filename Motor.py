@@ -2,7 +2,7 @@ from gpiozero import OutputDevice, PWMOutputDevice
 
 
 class DCMotor:
-    def __init__(self, in1: int, in2: int, pwm: int, scale: float) -> None:
+    def __init__(self, in1: int, in2: int, pwm: int, scale=1.0: float) -> None:
         self.in1 = OutputDevice(in1)
         self.in2 = OutputDevice(in2)
         self.pwm = PWMOutputDevice(pwm)

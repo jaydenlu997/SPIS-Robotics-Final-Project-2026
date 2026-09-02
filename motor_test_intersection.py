@@ -4,8 +4,8 @@ from Motor import DCMotor
 from Camera import SetupPICamera, RunPICamera_intersection, EndPICamera
 from Direction import Direction
 
-left = DCMotor(in1=25, in2=18, pwm=23)
-right = DCMotor(in1=16, in2=12, pwm=24)
+right = DCMotor(in1=25, in2=18, pwm=23, scale=0.85)
+left = DCMotor(in1=16, in2=12, pwm=24, scale=1.0)
 
 camera = SetupPICamera()
 
