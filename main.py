@@ -10,7 +10,7 @@ import random
 DRIVE_SPEED = 0.8       # Forward straight speed (0.0 to 1.0)
 TURN_SPEED = 1.0        # Turning power (0.0 to 1.0)
 MIN_TURN_DURATION = 0.70 # Minimum time (seconds) to rotate before checking alignment
-STRAIGHT_KP = 1.3       # Proportional gain for straight driving micro-adjustments
+STRAIGHT_KP = 1.0       # Proportional gain for straight driving micro-adjustments
 TURN_FORWARD_DELAY = 0.3 # Time (seconds) to drive forward to align wheelbase before pivoting
 
 def turn_right_visual(camera, left_motor, right_motor, turn_speed=TURN_SPEED, min_turn_time=MIN_TURN_DURATION, timeout=4.0):
@@ -112,8 +112,8 @@ def main():
     )
 
     right = DCMotor(
-        in1=12,
-        in2=16,
+        in1=16,
+        in2=12,
         pwm=24,
     )
     
