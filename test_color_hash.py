@@ -67,54 +67,37 @@ if __name__ == "__main__":
     camera.configure(config)
     camera.start()
     
-    print("Camera started.")
-    print("Commands:")
-    print("  Press 's' to SAVE the current view as Node A")
-    print("  Press 'c' to COMPARE the current view against Node A")
-    print("  Press 'q' to QUIT")
+    print("\n--- Headless Color Hash Tester ---")
+    print("Camera started successfully.")
     
     saved_hash = None
     
     try:
         while True:
+            cmd = input("\nCommands: [Enter/p]rint live hash, [s]ave as Node A, [c]ompare, [q]uit: ").strip().lower()
+            if cmd == 'q':
+                break
+                
+            # Grab a fresh frame
             img = camera.capture_array()
-            
-            # Show live camera and current color pixel counts on screen
             current_hash = get_color_hash(img)
             
-            # Print current hash onto the video frame
-            y_offset = 30
-            for color, count in current_hash.items():
-                cv2.putText(img, f"{color}: {count}", (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-                y_offset += 30
-                
-            if saved_hash:
-                is_match = compare_hashes(saved_hash, current_hash)
-                status_text = "MATCHES NODE A!" if is_match else "No Match"
-                color = (0, 255, 0) if is_match else (0, 0, 255)
-                cv2.putText(img, status_text, (10, 400), cv2.FONT_HERSHEY_SIMPLEX, 1.2, color, 3)
-
-            cv2.imshow("Color Hash Test", img)
-            
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord('q'):
-                break
-            elif key == ord('s'):
+            if cmd == 'p' or cmd == '':
+                print(f"Live Hash: {current_hash}")
+            elif cmd == 's':
                 saved_hash = current_hash
-                print(f"\n[SAVED NODE A] {saved_hash}")
-            elif key == ord('c'):
+                print(f"*** SAVED NODE A: {saved_hash} ***")
+            elif cmd == 'c':
+                print(f"Live Hash: {current_hash}")
                 if saved_hash:
-                    print(f"\n[COMPARING]")
-                    print(f"Node A:  {saved_hash}")
-                    print(f"Current: {current_hash}")
+                    print(f"Node A:    {saved_hash}")
                     if compare_hashes(saved_hash, current_hash):
-                        print("-> RESULT: SUCCESS! Matches Node A.")
+                        print("-> RESULT: MATCH! These are the same node.")
                     else:
-                        print("-> RESULT: FAILED! Does not match.")
+                        print("-> RESULT: FAILED! These are different nodes.")
                 else:
-                    print("Press 's' to save a node first!")
+                    print("-> Error: You must save Node A first (press 's')")
                     
     finally:
-        cv2.destroyAllWindows()
         camera.stop()
         camera.close()
