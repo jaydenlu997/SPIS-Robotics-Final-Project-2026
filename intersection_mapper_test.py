@@ -131,8 +131,8 @@ def turn_left_visual(camera, left_motor, right_motor, turn_speed=TURN_SPEED, min
 # --- Main Mapping Loop ---
 
 if __name__ == "__main__":
-    left = DCMotor(in1=25, in2=18, pwm=23)
-    right = DCMotor(in1=16, in2=12, pwm=24)
+    left = DCMotor(in1=25, in2=18, pwm=23, scale=1.0)
+    right = DCMotor(in1=16, in2=12, pwm=24, scale=0.85)
     camera = SetupPICamera()
     
     known_nodes = [] # List of dicts: {"id": int, "hash": dict}
