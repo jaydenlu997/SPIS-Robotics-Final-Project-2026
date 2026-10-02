@@ -10,10 +10,9 @@ The robot tracks blue painter's tape on dark carpet, handles 90° turns and 3-wa
 
 <!-- Drop your main demo GIF or MP4 into the assets/ folder and update the link below -->
 <!-- For video files: GitHub supports dragging .mp4 files directly into issues/PRs or READMEs -->
+<img src="assets/IMG_2933.png" alt="An image showing a robot in the center on top of a table, with a white background">
 
-![Robot Demo](assets/robot_demo.gif)
-
-_(Replace `assets/robot_demo.gif` with your demo video/GIF)_
+![Robot Demo](assets/IMG_2929.gif)
 
 ---
 
@@ -85,9 +84,9 @@ _Intersection tagged with colored stickers (left) alongside the multi-color HSV 
 <!-- Hardware photo placeholder -->
 <!-- ![Robot Chassis](assets/robot_hardware.jpg) -->
 
-| Motor     | IN1     | IN2     | PWM     | Notes                                        |
-| :-------- | :------ | :------ | :------ | :------------------------------------------- |
-| **Left**  | GPIO 25 | GPIO 18 | GPIO 23 | Scaled at `1.0`                              |
-| **Right** | GPIO 16 | GPIO 12 | GPIO 24 | Scaled at `0.85` (trimmed to drive straight) |
+| Motor     | IN1     | IN2     | PWM     | Notes                                                               |
+| :-------- | :------ | :------ | :------ | :------------------------------------------------------------------ |
+| **Left**  | GPIO 25 | GPIO 18 | GPIO 23 | Scaled at `1.0`                                                     |
+| **Right** | GPIO 16 | GPIO 12 | GPIO 24 | Scaled at `0.85` (trimmed to drive straight due to motor imbalance) |
 
 ---
